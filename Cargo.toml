@@ -1,0 +1,22 @@
+[package]
+name = "mapsforge-rs"
+version = "0.1.0"
+edition = "2021"
+description = "A Rust parser for Mapsforge binary map files"
+license = "MIT"
+repository = "your-repo-url"
+keywords = ["mapsforge", "maps", "osm", "parser"]
+categories = ["parser-implementations", "encoding"]
+authors = ["Your Name <your.email@example.com>"]
+documentation = "https://docs.rs/mapsforge-rs"
+readme = "README.md"
+
+[dependencies]
+byteorder = "1.5.0"
+thiserror = "1.0"
+log = "0.4"
+
+[dev-dependencies]
+tempfile = "3.8"
+assert_fs = "1.0"
+pretty_assertions = "1.4"
