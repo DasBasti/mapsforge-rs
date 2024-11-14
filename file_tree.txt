@@ -1,0 +1,22 @@
+.
+├── Cargo.lock
+├── Cargo.toml
+├── LICENSE
+├── README.md
+├── exmples
+│   └── read_header.rs
+├── file_tree.txt
+├── src
+│   ├── error.rs
+│   ├── header.rs
+│   ├── lib.rs
+│   ├── types.rs
+│   └── utils.rs
+├── test_data
+│   ├── India-North-West_oam.osm.db
+│   ├── India-North-West_oam.osm.map
+│   └── India-North-West_oam.osm.poi
+└── tests
+    └── header_test.rs
+
+81 directories, 695 files
