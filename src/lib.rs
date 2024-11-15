@@ -1,5 +1,6 @@
 pub mod error;
 pub mod header;
+pub mod tile;
 pub mod types;
 pub mod utils;
 

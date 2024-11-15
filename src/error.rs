@@ -17,4 +17,7 @@ pub enum MapforgeError {
     
     #[error("Invalid header size: {0}")]
     InvalidHeaderSize(u32),
+
+    #[error("Invalid tile index signature")]
+    InvalidIndexSignature,
 }
