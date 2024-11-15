@@ -8,7 +8,7 @@ use mapsforge_rs::prelude::*;
 mod tests {
     use super::*;
     
-    const TEST_FILE_PATH: &str = "test_data/India-North-West_oam.osm.map";
+    const TEST_FILE_PATH: &str = "test_data/test_map.map";
 
     #[test]
     fn test_read_header() -> Result<()> {

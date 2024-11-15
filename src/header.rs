@@ -12,7 +12,7 @@ const MAGIC_BYTES: &str = "mapsforge binary OSM";
 const MIN_SUPPORTED_VERSION: u32 = 3;
 
 // mask
-const DEBUG_INFO_MASK: u8 = 0x80;
+pub const DEBUG_INFO_MASK: u8 = 0x80;
 const MAP_START_POSITION_MASK: u8 = 0x40;
 const START_ZOOM_LEVEL_MASK: u8 = 0x20;
 const LANGUAGE_PREFERENCE_MASK: u8 = 0x10;
@@ -208,7 +208,7 @@ impl MapHeader {
         Ok(header)
     }
 
-    pub fn read_vbe_u<R: Read>(reader: &mut BufReader<R>) -> Result<String> {
+    pub(crate) fn read_vbe_u<R: Read>(reader: &mut BufReader<R>) -> Result<String> {
         let mut length = 0u32;
 
         let mut shift = 0;
