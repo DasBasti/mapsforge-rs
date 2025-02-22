@@ -1,4 +1,4 @@
-# mapsforge-rs
+# mapsforge-rs (WIP)
 
 A Rust parser for Mapsforge binary map files. This library provides functionality to read and parse Mapsforge map files (.map), which are commonly used for offline mapping applications.
 
