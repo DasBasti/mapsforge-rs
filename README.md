@@ -8,8 +8,8 @@ A Rust parser for Mapsforge binary map files. This library provides functionalit
   - Magic bytes validation
   - Version checking
   - Bounding box parsing
-- [ ] Map tile parsing (Coming soon)
-- [ ] POI data structure (Coming soon)
+- [ ] Map tile parsing (Work in progress)
+- [ ] POI data structure (Work in progress)
 - [ ] Sub-file structure parsing (Coming soon)
 
 ## Installation
