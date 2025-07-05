@@ -3,6 +3,10 @@ pub mod header;
 pub mod tile;
 pub mod types;
 pub mod utils;
+pub mod tag;
+pub mod blocks;
+pub mod poi;
+pub mod way;
 
 pub use error::MapforgeError;
 pub use types::{BoundingBox, MapHeader};
