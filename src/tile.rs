@@ -1,5 +1,5 @@
 use std::{
-    f64::consts::PI,
+    f64::{self, consts::PI},
     fs::File,
     io::{BufReader, Read, Seek, SeekFrom},
     path::Path,
@@ -50,11 +50,14 @@ impl MapFile {
 
                 bytes[0] &= !WATER_TILE_MASK;
 
+                let offset =u64::from_be_bytes([
+                        0, 0, 0, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4],
+                    ]);
+
                 let tile_index_entry = TileIndexEntry {
                     is_water: is_water_tile,
-                    offset: u64::from_be_bytes([
-                        0, 0, 0, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4],
-                    ]),
+                    offset,
+                    offset_abs: offset+interval.sub_file_start,
                 };
                 tile_index.push(tile_index_entry);
             }
@@ -69,10 +72,11 @@ impl MapFile {
         })
     }
 
-    // pub fn get_tile_at(&mut self, lat: f64, lon:f64, zoom:u8) -> Result<Tile> {
-
-    // }
-
+/*
+    pub fn get_tile_at(&mut self, lat: f64, lon:f64, zoom:u8) -> Result<Tile> {
+        
+    }
+*/
     pub fn calculate_total_tiles(bounding_box: &BoundingBox, zoom: u8) -> u32 {
         // X calculation (longitude)
         let x_min =
@@ -94,8 +98,31 @@ impl MapFile {
         let num_x = (x_max - x_min + 1) as u32;
         let num_y = (y_max - y_min + 1) as u32;
 
-        let total = num_x * num_y;
+        
 
-        total
+        num_x * num_y
     }
+    
+    pub fn get_tiles(lat_deg: f64, lon_deg: f64, zoom: u8) -> (i32, i32) {
+        let n = (1 << zoom as i32) as f64;
+
+        let x = (n * (lon_deg + 180.0) / 360.0) as i32;
+
+        let lat_rad = lat_deg.to_radians();
+        let y = (n * (1.0 - (lat_rad.tan() + (1.0 / lat_rad.cos())).ln() / PI) / 2.0) as i32;
+
+        (x, y)
+    }
+
+    fn tilex2long(x: u32, zoom: u8) -> f64
+    {
+        x as f64 / (1 << zoom) as f64 * 360.0 - 180.0
+    }
+    
+    fn tiley2lat(y: u32, zoom: u8) -> f64
+    {
+        let n = PI - 2.0 * PI * y as f64 / (1 << zoom) as f64;
+        180.0 / PI * (0.5 * (n.exp()) - (-n).exp()).atan()
+    }
+
 }
