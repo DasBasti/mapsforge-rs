@@ -1,7 +1,5 @@
 use crate::{
-    error::MapforgeError,
-    types::{BoundingBox, MapHeader, ZoomInterval},
-    Result,
+    error::MapforgeError, types::{BoundingBox, LatLong, MapHeader, ZoomInterval}, utils, Result
 };
 use byteorder::{BigEndian, ReadBytesExt};
 use std::io::{BufReader, Read};
@@ -87,7 +85,7 @@ impl MapHeader {
 
         let tile_size = reader.read_u16::<BigEndian>()?;
 
-        let projection = Self::read_vbe_u(reader)?;
+        let projection = utils::read_vbe_u(reader)?;
 
         let flags = reader.read_u8()?;
 
@@ -95,12 +93,12 @@ impl MapHeader {
             println!("DEBUG INFO EXIST");
         }
 
-        let map_start_position: Option<(f64, f64)>;
+        let map_start_position: Option<LatLong>;
 
         if flags & MAP_START_POSITION_MASK != 0 {
-            let lat = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
-            let lon = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
-            map_start_position = Some((lat, lon));
+            let latitude = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
+            let longitude = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
+            map_start_position = Some(LatLong{latitude, longitude});
         }else{ 
             map_start_position = None
         }
@@ -116,21 +114,21 @@ impl MapHeader {
         let language_preference: Option<String>;
 
         if flags & LANGUAGE_PREFERENCE_MASK != 0 {
-            language_preference = Some(Self::read_vbe_u(reader)?);
+            language_preference = Some(utils::read_vbe_u(reader)?);
         } else {
             language_preference = None;
         }
 
         let comment: Option<String>;
         if flags & COMMENT_MASK != 0 {
-            comment = Some(Self::read_vbe_u(reader)?)
+            comment = Some(utils::read_vbe_u(reader)?)
         }else {
             comment = None
         }
 
         let created_by: Option<String>;
         if flags & CREATED_BY_MASK != 0 {
-            created_by = Some(Self::read_vbe_u(reader)?);
+            created_by = Some(utils::read_vbe_u(reader)?);
         }else{
             created_by = None
         }
@@ -140,7 +138,7 @@ impl MapHeader {
         let mut poi_tags: Vec<String> = vec![];
 
         for _ in 0..num_poi_tags {
-            let tag = Self::read_vbe_u(reader)?;
+            let tag = utils::read_vbe_u(reader)?;
             poi_tags.push(tag);
         }
 
@@ -148,7 +146,7 @@ impl MapHeader {
         let mut way_tags: Vec<String> = vec![];
 
         for _ in 0..num_way_tags {
-            let tag = Self::read_vbe_u(reader)?;
+            let tag = utils::read_vbe_u(reader)?;
             way_tags.push(tag);
         }
 
@@ -206,30 +204,6 @@ impl MapHeader {
         }
 
         Ok(header)
-    }
-
-    pub(crate) fn read_vbe_u<R: Read>(reader: &mut BufReader<R>) -> Result<String> {
-        let mut length = 0u32;
-
-        let mut shift = 0;
-
-        loop {
-            let byte = reader.read_u8()?;
-
-            length |= ((byte & 0x7F) as u32) << shift;
-
-            if byte & 0x80 == 0 {
-                break;
-            }
-
-            shift += 7
-        }
-
-        let mut string_bytes = vec![0u8; length as usize];
-
-        reader.read_exact(&mut string_bytes)?;
-
-        Ok(String::from_utf8(string_bytes).expect("Error parsing vbe_u"))
     }
 
     pub fn is_valid(&self) -> bool {

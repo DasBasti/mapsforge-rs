@@ -31,7 +31,7 @@ pub struct MapHeader {
     pub flags: u8,
 
     // optional fields
-    pub map_start_position: Option<(f64,f64)>,
+    pub map_start_position: Option<LatLong>,
     pub start_zoom_level: Option<u8>,
     pub language_preference: Option<String>,
     pub comment: Option<String>,
@@ -59,7 +59,8 @@ pub struct TileIndexHeader {
 #[derive(Debug)]
 pub struct TileIndexEntry {
     pub is_water: bool,   
-    pub offset: u64,         
+    pub offset: u64,
+    pub offset_abs: u64,
 }
 
 #[derive(Debug)]
@@ -83,30 +84,32 @@ pub struct Tile {
     pub ways: Vec<Way>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct POI {
 
     pub debug_signature: Option<String>,
     
-    pub position_offset: (i32, i32),
+    pub position_offset: LatLong,
     pub layer: i8,
-    pub tag_ids: Vec<u32>,
+    pub tag_ids: Vec<usize>,
+    pub tags: Option<Vec<Tag>>,
     pub name: Option<String>,
     pub house_number: Option<String>, 
     pub elevation: Option<i32>
 }
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Way {
 
     pub debug_signature: Option<String>,
     
     pub sub_tile_bitmap: u16, 
     pub layer: i8, 
-    pub tag_ids: Vec<u32>,
+    pub tag_ids: Vec<usize>,
+    pub tags: Option<Vec<Tag>>,
     pub name: Option<String>,
     pub house_number: Option<String>,
     pub reference: Option<String>,
-    pub label_position: Option<(i32, i32)>,  
+    pub label_position: Option<LatLong>,  
     
 
     pub coordinate_blocks: Vec<WayCoordinateBlock>,
@@ -114,16 +117,30 @@ pub struct Way {
 
     pub double_delta_encoding: bool
 }
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct WayCoordinateBlock {
     
-    pub initial_position: (i32, i32), 
+    pub initial_position: LatLong, 
    
-    pub coordinates: Vec<(i32, i32)>
+    pub coordinates: Vec<LatLong>
 }
 
 #[derive(Debug)]
 pub struct TagMapping {
     pub poi_tags: Vec<String>,
     pub way_tags: Vec<String>
+}
+
+#[derive(Debug)]
+pub struct Tag {
+    pub key: String,
+    pub key_code: usize,
+    pub value: String,
+    pub value_code: usize,
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct LatLong {
+    pub latitude: f64,
+    pub longitude: f64,
 }
