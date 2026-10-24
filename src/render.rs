@@ -233,7 +233,7 @@ fn add_water_tile(scene: &mut Scene, projection: &TileProjection, view: &View, b
     scene.commands.push(Command {
         sort_key: 0,
         shape: Shape::Polygon,
-        style: Style { kind: Kind::Area, color: styles.water_color(), width: 1, order: 0, checker: false },
+        style: Style { kind: Kind::Area, color: styles.water_color(), width: 1, order: 0, checker: false, outline: false },
         start,
         len: 4,
         ring_start: scene.rings.len() as u32 - 1,
@@ -263,6 +263,7 @@ fn emit<D: DrawTarget>(scene: &mut Scene, target: &mut D) {
     scene.commands.sort_by_key(|c| c.sort_key);
 
     let mut rings: Vec<&[Point]> = Vec::new();
+    let mut closed: Vec<Point> = Vec::new();
     for c in &scene.commands {
         let points = &scene.points[c.start as usize..(c.start + c.len) as usize];
         match c.shape {
@@ -277,6 +278,14 @@ fn emit<D: DrawTarget>(scene: &mut Scene, target: &mut D) {
                     offset += len as usize;
                 }
                 target.fill_polygon(&rings, color);
+                if c.style.outline {
+                    for ring in &rings {
+                        closed.clear();
+                        closed.extend_from_slice(ring);
+                        closed.push(ring[0]);
+                        target.polyline(&closed, c.style.color, 1);
+                    }
+                }
             }
         }
     }

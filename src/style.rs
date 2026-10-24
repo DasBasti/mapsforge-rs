@@ -25,6 +25,8 @@ pub struct Style {
     pub order: u8,
     /// fill with a 50% checkerboard of `color` and the background instead of solid
     pub checker: bool,
+    /// draw a 1 px line in `color` around areas
+    pub outline: bool,
 }
 
 impl Style {
@@ -36,17 +38,17 @@ impl Style {
 }
 
 const fn area(color: u32, order: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Area, color, width: 1, order, checker: false })
+    Some(Style { kind: Kind::Area, color, width: 1, order, checker: false, outline: false })
 }
-/// Area filled with a 50% checkerboard of `color` and the background.
+/// Area filled with a 50% checkerboard of `color` and the background, with a border in `color`.
 const fn dithered(color: u32, order: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Area, color, width: 1, order, checker: true })
+    Some(Style { kind: Kind::Area, color, width: 1, order, checker: true, outline: true })
 }
 const fn line(color: u32, width: u8, order: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Line, color, width, order, checker: false })
+    Some(Style { kind: Kind::Line, color, width, order, checker: false, outline: false })
 }
 const fn poi(color: u32, radius: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Poi, color, width: radius, order: 100, checker: false })
+    Some(Style { kind: Kind::Poi, color, width: radius, order: 100, checker: false, outline: false })
 }
 
 /// `(key, value pattern, style)`. A pattern ending in `*` matches by prefix, which also
@@ -298,7 +300,7 @@ mod tests {
 
     #[test]
     fn rgb565() {
-        let s = Style { kind: Kind::Line, color: 0xffffff, width: 1, order: 0, checker: false };
+        let s = Style { kind: Kind::Line, color: 0xffffff, width: 1, order: 0, checker: false, outline: false };
         assert_eq!(s.rgb565(), 0xffff);
     }
 }
