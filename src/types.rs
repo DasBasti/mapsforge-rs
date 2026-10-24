@@ -1,4 +1,6 @@
-use std::{fs::File, io::BufReader};
+use alloc::{string::String, vec::Vec};
+
+use crate::io::ByteSource;
 
 #[derive(Debug,Clone, Copy)]
 pub struct BoundingBox {
@@ -63,12 +65,17 @@ pub struct TileIndexEntry {
     pub offset_abs: u64,
 }
 
+/// A Mapsforge map file on top of any seekable [`ByteSource`].
+/// Tile index entries are read on demand, not held in memory.
 #[derive(Debug)]
-pub struct MapFile {
+pub struct MapFile<S: ByteSource> {
     pub header: MapHeader,
-    pub reader: BufReader<File>,  
-    pub tile_indices: Vec<Vec<TileIndexEntry>>,
+    pub reader: S,
 }
+
+/// [`MapFile`] reading from a buffered `std::fs::File`.
+#[cfg(feature = "std")]
+pub type FileMapFile = MapFile<std::io::BufReader<std::fs::File>>;
 
 #[derive(Debug)]
 pub struct Tile {

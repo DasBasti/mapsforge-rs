@@ -1,8 +1,6 @@
-use std::io::{BufReader, Read};
+use alloc::{string::{String, ToString}, vec::Vec};
 
-use byteorder::ReadBytesExt;
-
-use crate::{error::MapforgeError, tag, types::{LatLong, Tag, POI}, utils, Result};
+use crate::{error::MapforgeError, io::ByteRead, tag, types::{LatLong, Tag, POI}, utils, Result};
 
 const POI_LAYER_BITMASK: u8 = 0xf0;
 const POI_NUMBER_OF_TAGS_BITMASK: u8 = 0x0f;
@@ -11,14 +9,14 @@ const POI_FEATURE_NAME: u8 = 0x80;
 const POI_FEATURE_HOUSE_NUMBER: u8 = 0x40;
 const POI_FEATURE_ELEVATION: u8 = 0x20;
 
-pub fn process_pois<R: Read>(reader: &mut BufReader<R>, pois_on_query_zoomlevel: usize, poi_tags: &[String], debug: bool) -> Result<Vec<POI>> {
+pub fn process_pois<R: ByteRead + ?Sized>(reader: &mut R, pois_on_query_zoomlevel: usize, poi_tags: &[String], debug: bool) -> Result<Vec<POI>> {
     let mut pois: Vec<POI> = Vec::with_capacity(pois_on_query_zoomlevel);
 
     for _ in 0..pois_on_query_zoomlevel {
         let mut poi_signature = None;
         if debug {
             let mut sig = [0u8; 32];
-            reader.read_exact(&mut sig)?;
+            reader.read_bytes(&mut sig)?;
             poi_signature = Some(String::from_utf8_lossy(&sig).trim().to_string());
         }
 

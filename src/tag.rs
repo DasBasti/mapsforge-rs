@@ -1,3 +1,5 @@
+use alloc::string::ToString;
+
 use crate::{types::Tag, utils};
 
 pub const KEY_VALUE_SEPERATOR: char = '=';

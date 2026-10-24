@@ -1,9 +1,6 @@
-use byteorder::{ReadBytesExt};
+use alloc::{string::String, vec, vec::Vec};
 
-use crate::{
-    Result,
-};
-use std::io::{BufReader, Read};
+use crate::{io::ByteRead, Result};
 
 pub const LONGITUDE_MAX: f64 = 180f64;
 pub const LONGITUDE_MIN: f64 = -LONGITUDE_MAX;
@@ -12,7 +9,7 @@ pub const LATITUDE_MAX: f64 = 90f64;
 pub const LATITUDE_MIN: f64 = -LATITUDE_MAX;
 
 
-pub fn read_vbe_u<R: Read>(reader: &mut BufReader<R>) -> Result<String> {
+pub fn read_vbe_u<R: ByteRead + ?Sized>(reader: &mut R) -> Result<String> {
     let mut length = 0u32;
 
     let mut shift = 0;
@@ -31,12 +28,13 @@ pub fn read_vbe_u<R: Read>(reader: &mut BufReader<R>) -> Result<String> {
 
     let mut string_bytes = vec![0u8; length as usize];
 
-    reader.read_exact(&mut string_bytes)?;
+    reader.read_bytes(&mut string_bytes)?;
 
-    Ok(String::from_utf8(string_bytes).expect("Error parsing vbe_u"))
+    Ok(String::from_utf8(string_bytes)
+        .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned()))
 }
 
-pub fn read_vbe_u_int<R: Read>(reader: &mut BufReader<R>) -> Result<usize> {
+pub fn read_vbe_u_int<R: ByteRead + ?Sized>(reader: &mut R) -> Result<usize> {
     let mut length = 0usize;
 
     let mut shift = 0;
@@ -57,7 +55,7 @@ pub fn read_vbe_u_int<R: Read>(reader: &mut BufReader<R>) -> Result<usize> {
     Ok(length | ((byte as usize) << shift))
 }
 
-pub fn read_vbe_s_int<R: Read>(reader: &mut BufReader<R>) -> Result<isize> {
+pub fn read_vbe_s_int<R: ByteRead + ?Sized>(reader: &mut R) -> Result<isize> {
     let mut length = 0usize;
 
     let mut shift = 0;
@@ -70,7 +68,7 @@ pub fn read_vbe_s_int<R: Read>(reader: &mut BufReader<R>) -> Result<isize> {
             // read the six data bits from the last byte
             if byte & 0x40 != 0 {
                 // negative number
-                length |= length | ((byte & 0x3F) as usize) << shift;
+                length |= ((byte & 0x3F) as usize) << shift;
                 return Ok(-(length as isize));
             } else {
                 length |= ((byte & 0x7F) as usize) << shift;
@@ -84,7 +82,7 @@ pub fn read_vbe_s_int<R: Read>(reader: &mut BufReader<R>) -> Result<isize> {
     }
 }
 
-pub fn read_microdegrees<R: Read>(reader: &mut BufReader<R>) -> Result<f64> {
+pub fn read_microdegrees<R: ByteRead + ?Sized>(reader: &mut R) -> Result<f64> {
     let microdegrees = read_vbe_s_int(reader)?;
     
     Ok(microdegrees_to_degrees(microdegrees))

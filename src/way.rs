@@ -1,8 +1,6 @@
-use std::io::{BufReader, Read};
+use alloc::{string::{String, ToString}, vec::Vec};
 
-use byteorder::ReadBytesExt;
-
-use crate::{error::MapforgeError, tag::{self, TAG_KEY_HOUSE_NUMBER, TAG_KEY_NAME, TAG_KEY_REF}, types::{LatLong, Tag, Way, WayCoordinateBlock}, utils, Result};
+use crate::{error::MapforgeError, io::ByteRead, tag::{self, TAG_KEY_HOUSE_NUMBER, TAG_KEY_NAME, TAG_KEY_REF}, types::{LatLong, Tag, Way, WayCoordinateBlock}, utils, Result};
 
 const WAY_LAYER_BITMASK: u8 = 0xf0;
 const WAY_NUMBER_OF_TAGS_BITMASK: u8 = 0x0f;
@@ -17,7 +15,7 @@ const WAY_FEATURE_DOUBLE_DELTA_ENCODING: u8 = 0x04;
 /// Reads `ways_on_query_zoomlevel` ways. Coordinates are kept as stored in the file:
 /// the first node of each block is an offset from the tile's top-left corner, all
 /// following nodes are absolute offsets from that corner (deltas already accumulated).
-pub fn process_ways<R: Read>(reader: &mut BufReader<R>, ways_on_query_zoomlevel: usize, way_tags: &[String], debug: bool) -> Result<Vec<Way>> {
+pub fn process_ways<R: ByteRead + ?Sized>(reader: &mut R, ways_on_query_zoomlevel: usize, way_tags: &[String], debug: bool) -> Result<Vec<Way>> {
     let mut ways: Vec<Way> = Vec::with_capacity(ways_on_query_zoomlevel);
 
     for _ in 0..ways_on_query_zoomlevel {
@@ -25,14 +23,14 @@ pub fn process_ways<R: Read>(reader: &mut BufReader<R>, ways_on_query_zoomlevel:
 
         if debug {
             let mut sig = [0u8; 32];
-            reader.read_exact(&mut sig)?;
+            reader.read_bytes(&mut sig)?;
             way.debug_signature = Some(String::from_utf8_lossy(&sig).trim().to_string());
         }
 
         // size of the rest of this way in bytes, lets callers skip ways
         let _way_data_size = utils::read_vbe_u_int(reader)?;
 
-        way.sub_tile_bitmap = reader.read_u16::<byteorder::BigEndian>()?;
+        way.sub_tile_bitmap = reader.read_u16_be()?;
 
         let special_byte = reader.read_u8()?;
         way.layer = ((special_byte & WAY_LAYER_BITMASK) >> WAY_LAYER_SHIFT) as i8;
@@ -112,7 +110,7 @@ fn clamp_longitude(longitude: f64) -> f64 {
     }
 }
 
-fn decode_way_nodes_double_delta<R: Read>(reader: &mut BufReader<R>, num_way_nodes: usize) -> Result<WayCoordinateBlock> {
+fn decode_way_nodes_double_delta<R: ByteRead + ?Sized>(reader: &mut R, num_way_nodes: usize) -> Result<WayCoordinateBlock> {
     let mut block: WayCoordinateBlock = Default::default();
     if num_way_nodes == 0 {
         return Ok(block);
@@ -142,7 +140,7 @@ fn decode_way_nodes_double_delta<R: Read>(reader: &mut BufReader<R>, num_way_nod
     Ok(block)
 }
 
-fn decode_way_nodes_single_delta<R: Read>(reader: &mut BufReader<R>, num_way_nodes: usize) -> Result<WayCoordinateBlock> {
+fn decode_way_nodes_single_delta<R: ByteRead + ?Sized>(reader: &mut R, num_way_nodes: usize) -> Result<WayCoordinateBlock> {
     let mut block: WayCoordinateBlock = Default::default();
     if num_way_nodes == 0 {
         return Ok(block);

@@ -1,8 +1,7 @@
 use crate::{
-    error::MapforgeError, types::{BoundingBox, LatLong, MapHeader, ZoomInterval}, utils, Result
+    error::MapforgeError, io::ByteRead, types::{BoundingBox, LatLong, MapHeader, ZoomInterval}, utils, Result
 };
-use byteorder::{BigEndian, ReadBytesExt};
-use std::io::{BufReader, Read};
+use alloc::{string::{String, ToString}, vec, vec::Vec};
 
 // masgic bytes that identify a valid Mapsforge binary map file
 const MAGIC_BYTES: &str = "mapsforge binary OSM";
@@ -20,13 +19,13 @@ const CREATED_BY_MASK: u8 = 0x04;
 impl BoundingBox {
     // reads a bounding box from a binary buffer
     // using generic so that it can work with any type that implements Read
-    pub fn read_from_buffer<R: Read>(reader: &mut BufReader<R>) -> Result<Self> {
+    pub fn read_from_buffer<R: ByteRead + ?Sized>(reader: &mut R) -> Result<Self> {
         // read and convert coordinates from microdegrees to degrees
         // divide by 1_000_000 to get degrees as all latitude and longitude coordinates are stored in microdegrees (degrees × 10^6)
-        let min_lat = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
-        let min_lon = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
-        let max_lat = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
-        let max_lon = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
+        let min_lat = reader.read_i32_be()? as f64 / 1_000_000.0;
+        let min_lon = reader.read_i32_be()? as f64 / 1_000_000.0;
+        let max_lat = reader.read_i32_be()? as f64 / 1_000_000.0;
+        let max_lon = reader.read_i32_be()? as f64 / 1_000_000.0;
 
         let bbox = BoundingBox {
             min_lat,
@@ -62,42 +61,38 @@ impl BoundingBox {
 
 impl MapHeader {
     // reads a map header from binary buffer
-    pub fn read_from_file<R: Read>(reader: &mut BufReader<R>) -> Result<Self> {
+    pub fn read_from_file<R: ByteRead + ?Sized>(reader: &mut R) -> Result<Self> {
         let mut magic_buf = [0u8; 20];
-        reader.read_exact(&mut magic_buf)?;
+        reader.read_bytes(&mut magic_buf)?;
         let magic = String::from_utf8_lossy(&magic_buf).trim().to_string();
 
         if magic != MAGIC_BYTES {
             return Err(MapforgeError::InvalidMagic);
         }
 
-        let header_size = reader.read_u32::<BigEndian>()?;
-        let file_version = reader.read_u32::<BigEndian>()?;
+        let header_size = reader.read_u32_be()?;
+        let file_version = reader.read_u32_be()?;
 
         if file_version < MIN_SUPPORTED_VERSION {
             return Err(MapforgeError::UnsupportedVersion(file_version));
         }
 
-        let file_size = reader.read_u64::<BigEndian>()?;
-        let creation_date = reader.read_u64::<BigEndian>()?;
+        let file_size = reader.read_u64_be()?;
+        let creation_date = reader.read_u64_be()?;
 
         let bounding_box = BoundingBox::read_from_buffer(reader)?;
 
-        let tile_size = reader.read_u16::<BigEndian>()?;
+        let tile_size = reader.read_u16_be()?;
 
         let projection = utils::read_vbe_u(reader)?;
 
         let flags = reader.read_u8()?;
 
-        if flags & DEBUG_INFO_MASK != 0 {
-            println!("DEBUG INFO EXIST");
-        }
-
         let map_start_position: Option<LatLong>;
 
         if flags & MAP_START_POSITION_MASK != 0 {
-            let latitude = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
-            let longitude = reader.read_i32::<BigEndian>()? as f64 / 1_000_000.0;
+            let latitude = reader.read_i32_be()? as f64 / 1_000_000.0;
+            let longitude = reader.read_i32_be()? as f64 / 1_000_000.0;
             map_start_position = Some(LatLong{latitude, longitude});
         }else{ 
             map_start_position = None
@@ -134,7 +129,7 @@ impl MapHeader {
         }
 
 
-        let num_poi_tags = reader.read_u16::<BigEndian>()?;
+        let num_poi_tags = reader.read_u16_be()?;
         let mut poi_tags: Vec<String> = vec![];
 
         for _ in 0..num_poi_tags {
@@ -142,7 +137,7 @@ impl MapHeader {
             poi_tags.push(tag);
         }
 
-        let num_way_tags = reader.read_u16::<BigEndian>()?;
+        let num_way_tags = reader.read_u16_be()?;
         let mut way_tags: Vec<String> = vec![];
 
         for _ in 0..num_way_tags {
@@ -159,8 +154,8 @@ impl MapHeader {
             let base_zoom_level = reader.read_u8()?;
             let min_zoom_level = reader.read_u8()?;
             let max_zoom_level = reader.read_u8()?;
-            let sub_file_start = reader.read_u64::<BigEndian>()?;
-            let sub_file_size = reader.read_u64::<BigEndian>()?;
+            let sub_file_start = reader.read_u64_be()?;
+            let sub_file_size = reader.read_u64_be()?;
 
 
             

@@ -1,4 +1,10 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 pub mod error;
+pub mod io;
+pub mod math;
 pub mod header;
 pub mod tile;
 pub mod types;
@@ -18,4 +24,4 @@ pub mod prelude {
 }
 
 
-pub type Result<T> = std::result::Result<T, MapforgeError>;
+pub type Result<T> = core::result::Result<T, MapforgeError>;
