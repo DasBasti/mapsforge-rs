@@ -30,7 +30,49 @@ extern "C" {
  * yellow, orange (color_t of the firmware) */
 #define MFR_PALETTE_EINK7 1
 
-/* flag in the color of fill_polygon: fill with a 50% checkerboard of the color and white */
+/*
+ * Patterned colors (dither mixes). With MFR_PALETTE_EINK7 the color passed to the callbacks
+ * (fill_polygon, polyline and point) is
+ *
+ *   bits  0..7   color A, palette index
+ *   bits  8..23  0
+ *   bits 24..27  pattern id MFR_PAT_*: which pixels get color A, the others get color B
+ *   bits 28..31  color B: 0 = the background (white, MFR_FILL_CHECKER compatible),
+ *                1..7 = palette index + 1, 15 = transparent (pixels of B are not painted,
+ *                for overlays such as wetland over forest)
+ *
+ * A plain palette index (pattern 0) is a solid color, so callbacks that ignore the high bits
+ * still get a usable color (A) with MFR_COLOR_A(). Patterns are 4x4 cells anchored at the
+ * absolute screen pixel (x & 3, y & 3), so neighbouring polygons and tiles join seamlessly.
+ *
+ * With MFR_PALETTE_RGB the low 24 bits are 0xRRGGBB. Opaque mixes are passed pre-blended as
+ * the solid average color (high bits 0); transparent overlays keep pattern id and B = 15 with
+ * A as RGB, so a rasterizer can stipple them (or ignore the high bits and paint A solid).
+ */
+#define MFR_COLOR_A(c) ((c) & 0x00ffffffu)
+#define MFR_COLOR_PATTERN(c) (((c) >> 24) & 0x0fu)
+#define MFR_COLOR_B(c) (((c) >> 28) & 0x0fu)
+#define MFR_B_BACKGROUND 0u
+#define MFR_B_TRANSPARENT 15u
+#define MFR_B_INDEX(index) ((uint32_t)(index) + 1u)
+/* patterned color from palette index a, B code b (MFR_B_*) and pattern id */
+#define MFR_MIX(a, b, pattern) ((uint32_t)(a) | ((uint32_t)(pattern) << 24) | ((uint32_t)(b) << 28))
+
+#define MFR_PAT_SOLID 0    /* A only */
+#define MFR_PAT_50 1       /* A on even x + y (checkerboard) */
+#define MFR_PAT_25 2       /* A on even x and even y: square grid of dots */
+#define MFR_PAT_75 3       /* B on even x and odd y (P50 and P25 are subsets) */
+#define MFR_PAT_12 4       /* A at (0,0) and (2,2) of the 4x4 cell: diagonal grid of dots */
+#define MFR_PAT_6 5        /* A at (0,0) of the 4x4 cell: sparse dots */
+#define MFR_PAT_HLINES 6   /* A on rows with y % 4 == 0: horizontal hatching, 25% */
+#define MFR_PAT_DIAG 7     /* A where (x + y) % 4 == 0: diagonal hatching, 25% */
+#define MFR_PAT_COUNT 8
+
+/* 4x4 masks of the patterns: bit (x & 3) of nibble (y & 3) set = color A */
+#define MFR_PATTERN_MASKS { 0xffff, 0xa5a5, 0x0505, 0xafaf, 0x0401, 0x0001, 0x000f, 0x2481 }
+
+/* flag in the color of fill_polygon: fill with a 50% checkerboard of the color and the
+ * background (= MFR_PAT_50 with B = background, kept for compatibility) */
 #define MFR_FILL_CHECKER 0x01000000u
 
 typedef struct mfr_map mfr_map_t;

@@ -2,7 +2,7 @@ use std::{fmt::Write, path::Path};
 
 use mapsforge_rs::{
     render::{DrawTarget, Point},
-    style::StyleTable,
+    style::{paint, StyleTable},
     types::MapFile,
     view::View,
     Result,
@@ -22,27 +22,36 @@ fn pts(points: &[Point]) -> String {
     points.iter().map(|p| format!("{},{}", p.x, p.y)).collect::<Vec<_>>().join(" ")
 }
 
+/// SVG color of a paint code: mixes as their average color, transparent overlays half opaque.
+fn svg_color(code: u32) -> String {
+    let opacity = if paint::is_transparent(code) { r#"" fill-opacity="0.5"# } else { "" };
+    format!("#{:06x}{opacity}", paint::rgb(code))
+}
+
 impl DrawTarget for Svg {
     fn fill_polygon(&mut self, rings: &[&[Point]], color: u32) {
         self.polygons += 1;
+        let color = svg_color(color);
         let path: String = rings
             .iter()
             .map(|r| format!("M{}Z", pts(r).replace(' ', "L")))
             .collect();
-        writeln!(self.body, r##"<path d="{path}" fill="#{color:06x}" fill-rule="evenodd"/>"##).unwrap();
+        writeln!(self.body, r##"<path d="{path}" fill="{color}" fill-rule="evenodd"/>"##).unwrap();
     }
     fn polyline(&mut self, points: &[Point], color: u32, width: u8) {
         self.lines += 1;
+        let color = format!("#{:06x}", paint::rgb(color));
         writeln!(
             self.body,
-            r##"<polyline points="{}" fill="none" stroke="#{color:06x}" stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round"/>"##,
+            r##"<polyline points="{}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round"/>"##,
             pts(points)
         )
         .unwrap();
     }
     fn point(&mut self, at: Point, color: u32, radius: u8) {
         self.points += 1;
-        writeln!(self.body, r##"<circle cx="{}" cy="{}" r="{radius}" fill="#{color:06x}"/>"##, at.x, at.y).unwrap();
+        let color = format!("#{:06x}", paint::rgb(color));
+        writeln!(self.body, r##"<circle cx="{}" cy="{}" r="{radius}" fill="{color}"/>"##, at.x, at.y).unwrap();
     }
 }
 

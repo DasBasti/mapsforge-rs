@@ -6,7 +6,7 @@ use crate::{
     error::MapforgeError,
     io::{ByteRead, ByteSource},
     render::{DrawTarget, Point},
-    style::{eink7_index, StyleTable},
+    style::{paint, StyleTable},
     types::MapFile,
     view::View,
     Result,
@@ -23,7 +23,8 @@ pub const MFR_ERR_CORRUPT: c_int = -6;
 /// Colors are passed as 0xRRGGBB.
 pub const MFR_PALETTE_RGB: u8 = 0;
 /// Colors are passed as index of the 7-color e-paper: black, white, green, blue, red,
-/// yellow, orange (the firmware's `color_t`).
+/// yellow, orange (the firmware's `color_t`), with dither patterns in the high bits (see
+/// `MFR_PAT_*` in `include/mapsforge.h`).
 pub const MFR_PALETTE_EINK7: u8 = 1;
 
 static mut LAST_ERROR: [u8; 64] = [0; 64];
@@ -190,13 +191,16 @@ struct CTarget {
 }
 
 impl CTarget {
-    /// Converts to the palette, keeping the flags above the 24 bit color (`FILL_CHECKER`).
-    fn color(&self, rgb: u32, is_line: bool) -> u32 {
-        let flags = rgb & 0xff00_0000;
+    /// Converts a paint code to the palette. EINK7 is the native encoding. RGB gets opaque
+    /// mixes as their average color; transparent overlays keep pattern and B (= 15) with A as
+    /// RGB, so a pattern-aware rasterizer can still stipple them.
+    fn color(&self, code: u32) -> u32 {
         if self.palette == MFR_PALETTE_EINK7 {
-            eink7_index(rgb & 0x00ff_ffff, is_line) as u32 | flags
+            code
+        } else if paint::is_transparent(code) {
+            paint::rgb(code) | (code & 0xff00_0000)
         } else {
-            rgb
+            paint::rgb(code)
         }
     }
 }
@@ -209,15 +213,15 @@ impl DrawTarget for CTarget {
             self.points.extend_from_slice(ring);
             self.lengths.push(ring.len() as u32);
         }
-        (self.draw.fill_polygon)(self.draw.ctx, self.points.as_ptr(), self.lengths.as_ptr(), self.lengths.len() as u32, self.color(color, false));
+        (self.draw.fill_polygon)(self.draw.ctx, self.points.as_ptr(), self.lengths.as_ptr(), self.lengths.len() as u32, self.color(color));
     }
 
     fn polyline(&mut self, points: &[Point], color: u32, width: u8) {
-        (self.draw.polyline)(self.draw.ctx, points.as_ptr(), points.len() as u32, self.color(color, true), width);
+        (self.draw.polyline)(self.draw.ctx, points.as_ptr(), points.len() as u32, self.color(color), width);
     }
 
     fn point(&mut self, at: Point, color: u32, radius: u8) {
-        (self.draw.point)(self.draw.ctx, at, self.color(color, false), radius);
+        (self.draw.point)(self.draw.ctx, at, self.color(color), radius);
     }
 }
 

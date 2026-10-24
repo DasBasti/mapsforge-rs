@@ -4,6 +4,8 @@
 
 #define MAX_CROSSINGS 128
 
+static const uint16_t PATTERN_MASKS[MFR_PAT_COUNT] = MFR_PATTERN_MASKS;
+
 static void span_clipped(const mfr_raster_t* r, int y, int x0, int x1, uint32_t color)
 {
     if (y < 0 || y >= r->height || x1 < 0 || x0 >= r->width)
@@ -16,12 +18,78 @@ static void span_clipped(const mfr_raster_t* r, int y, int x0, int x1, uint32_t 
         r->span(r->ctx, y, x0, x1, color);
 }
 
-/* 50% checkerboard: pixels with even x + y get the color, all others the background */
-static void span_checker(const mfr_raster_t* r, int y, int x0, int x1, uint32_t color)
+/* Paints the runs of x0..x1 whose bit in the 4 pixel periodic row mask equals `want`. */
+static void pattern_runs(const mfr_raster_t* r, int y, int x0, int x1, unsigned row, unsigned want,
+                         uint32_t color)
 {
-    span_clipped(r, y, x0, x1, r->white);
-    for (int x = x0 + ((x0 + y) & 1); x <= x1; x += 2)
-        span_clipped(r, y, x, x, color);
+    int x = x0;
+    while (x <= x1) {
+        while (x <= x1 && ((row >> (x & 3)) & 1) != want)
+            x++;
+        int start = x;
+        while (x <= x1 && ((row >> (x & 3)) & 1) == want)
+            x++;
+        if (start < x)
+            r->span(r->ctx, y, start, x - 1, color);
+    }
+}
+
+/*
+ * Span of a patterned color (see MFR_PAT_* in mapsforge.h). Pixels are chosen by the absolute
+ * screen position, so the pattern does not depend on the polygon. The majority color of the
+ * row is painted as one span and only the runs of the minority color on top of it, so a 25%
+ * row costs one call plus one per dot; transparent B pixels are not painted at all.
+ */
+static void span_color(const mfr_raster_t* r, int y, int x0, int x1, uint32_t color)
+{
+    unsigned pattern = MFR_COLOR_PATTERN(color);
+    unsigned b_code = MFR_COLOR_B(color);
+    uint32_t a = MFR_COLOR_A(color);
+    if (pattern == MFR_PAT_SOLID || pattern >= MFR_PAT_COUNT) {
+        span_clipped(r, y, x0, x1, a);
+        return;
+    }
+    if (y < 0 || y >= r->height || x1 < 0 || x0 >= r->width)
+        return;
+    if (x0 < 0)
+        x0 = 0;
+    if (x1 >= r->width)
+        x1 = r->width - 1;
+    if (x0 > x1)
+        return;
+
+    int transparent = b_code == MFR_B_TRANSPARENT;
+    uint32_t b = b_code == MFR_B_BACKGROUND ? r->white : b_code - 1;
+    unsigned row = (PATTERN_MASKS[pattern] >> ((y & 3) * 4)) & 0xf;
+    if (x0 == x1) {
+        if ((row >> (x0 & 3)) & 1)
+            r->span(r->ctx, y, x0, x0, a);
+        else if (!transparent)
+            r->span(r->ctx, y, x0, x0, b);
+        return;
+    }
+    if (row == 0xf) {
+        r->span(r->ctx, y, x0, x1, a);
+        return;
+    }
+    if (row == 0) {
+        if (!transparent)
+            r->span(r->ctx, y, x0, x1, b);
+        return;
+    }
+    if (transparent) {
+        pattern_runs(r, y, x0, x1, row, 1, a);
+        return;
+    }
+    /* bits of A in the row: majority as the base span */
+    unsigned bits = (row & 1) + ((row >> 1) & 1) + ((row >> 2) & 1) + ((row >> 3) & 1);
+    if (bits > 2) {
+        r->span(r->ctx, y, x0, x1, a);
+        pattern_runs(r, y, x0, x1, row, 0, b);
+    } else {
+        r->span(r->ctx, y, x0, x1, b);
+        pattern_runs(r, y, x0, x1, row, 1, a);
+    }
 }
 
 static int compare_int(const void* a, const void* b)
@@ -32,8 +100,6 @@ static int compare_int(const void* a, const void* b)
 void mfr_raster_fill_polygon(const mfr_raster_t* r, const mfr_point_t* points,
                              const uint32_t* ring_lengths, uint32_t ring_count, uint32_t color)
 {
-    int checker = (color & MFR_FILL_CHECKER) != 0;
-    color &= ~MFR_FILL_CHECKER;
     uint32_t total = 0;
     int min_y = r->height, max_y = -1;
     for (uint32_t i = 0; i < ring_count; i++)
@@ -68,7 +134,7 @@ void mfr_raster_fill_polygon(const mfr_raster_t* r, const mfr_point_t* points,
         }
         qsort(crossings, n, sizeof(int), compare_int);
         for (int i = 0; i + 1 < n; i += 2)
-            (checker ? span_checker : span_clipped)(r, y, crossings[i], crossings[i + 1], color);
+            span_color(r, y, crossings[i], crossings[i + 1], color);
     }
 }
 
@@ -78,7 +144,7 @@ void mfr_raster_disc(const mfr_raster_t* r, int cx, int cy, int radius, uint32_t
         int dx = 0;
         while ((dx + 1) * (dx + 1) + dy * dy <= radius * radius + radius)
             dx++;
-        span_clipped(r, cy + dy, cx - dx, cx + dx, color);
+        span_color(r, cy + dy, cx - dx, cx + dx, color);
     }
 }
 
@@ -88,7 +154,7 @@ static void line1(const mfr_raster_t* r, int x0, int y0, int x1, int y1, uint32_
     int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
     for (;;) {
-        span_clipped(r, y0, x0, x0, color);
+        span_color(r, y0, x0, x0, color);
         if (x0 == x1 && y0 == y1)
             break;
         int e2 = 2 * err;

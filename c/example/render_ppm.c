@@ -14,6 +14,7 @@ typedef struct {
     uint8_t* rgb;
     int width, height;
     int eink;
+    long spans; /* number of span calls, the cost driver on the e-paper's framebuffer */
 } canvas_t;
 
 static uint32_t to_rgb(const canvas_t* c, uint32_t color)
@@ -25,6 +26,7 @@ static void span(void* ctx, int y, int x0, int x1, uint32_t color)
 {
     canvas_t* c = ctx;
     uint32_t rgb = to_rgb(c, color);
+    c->spans++;
     for (int x = x0; x <= x1; x++) {
         uint8_t* p = c->rgb + ((size_t)y * c->width + x) * 3;
         p[0] = rgb >> 16;
@@ -96,7 +98,7 @@ int main(int argc, char** argv)
     mfr_draw_t draw = { &canvas, fill_polygon, polyline, point };
     int tiles = mfr_render(map, atof(argv[2]), atof(argv[3]), (uint8_t)atoi(argv[4]), canvas.width,
         canvas.height, canvas.width / 2, canvas.height / 2, canvas.eink ? MFR_PALETTE_EINK7 : MFR_PALETTE_RGB, &draw);
-    printf("tiles read: %d\n", tiles);
+    printf("tiles read: %d, span calls: %ld\n", tiles, canvas.spans);
 
     FILE* out = fopen(argv[5], "wb");
     fprintf(out, "P6\n%d %d\n255\n", canvas.width, canvas.height);

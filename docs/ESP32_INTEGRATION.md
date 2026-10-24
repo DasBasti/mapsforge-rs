@@ -33,5 +33,6 @@ e-paper, `display_t` framebuffer, SD card through FatFs under `sd_lock()`).
   emulated (slow but only a few ops per vertex). Measure first, move to `f32`/fixed point if needed.
 - Memory: a render keeps all projected points of the visible tiles (about 4 bytes per vertex) until
   drawing. Fine with PSRAM; for the PSRAM-less `esp32dev` board it needs a cap or per-tile drawing.
-- The e-paper color mapping (`style::eink7_index`) and rule table (`style.rs`) are a first draft:
-  POIs are too dense at zoom 14 and buildings are white on white.
+- Colors and rules: see `docs/COLOR_SCHEMA.md` (inks and dither mixes, `MFR_PAT_*` in
+  `mapsforge.h`). Dithered fills cost more `span` calls (rural z14 view: ~160k instead of ~60k,
+  city: fewer than before); `span` is still called with a plain palette index.

@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use crate::{
     io::ByteSource,
-    style::{Kind, Style, StyleTable},
+    style::{order, paint, Ink, Kind, Style, StyleTable, Symbol},
     types::{LatLong, MapFile},
     view::{TileProjection, View},
     visit::{PoiInfo, TileVisitor, WayInfo},
@@ -19,11 +19,14 @@ pub struct Point {
     pub y: i16,
 }
 
-/// Receives drawing primitives in painting order (back to front).
 /// Flag in the color of `fill_polygon`: fill with a 50% checkerboard of the color and the
-/// background (white) instead of solid.
+/// background (white) instead of solid. Same as `paint::tint(ink, Pattern::P50)`.
 pub const FILL_CHECKER: u32 = 1 << 24;
 
+/// Receives drawing primitives in painting order (back to front). Colors are
+/// [`paint`](crate::style::paint) codes: a palette index of the e-paper, optionally with a
+/// dither pattern and a second color (see `include/mapsforge.h`); `paint::rgb` gives the
+/// average RGB color, `paint::ink_at` the ink of a pixel.
 pub trait DrawTarget {
     /// Fills the given rings with the even-odd rule (inner rings are holes).
     fn fill_polygon(&mut self, rings: &[&[Point]], color: u32);
@@ -70,6 +73,7 @@ struct TileCollector<'a> {
     screen: &'a Screen,
     /// 4x4 sub tile cells (bit 15 = top-left) that touch the screen
     visible_cells: u16,
+    zoom: u8,
 }
 
 fn to_point(p: (f32, f32)) -> Point {
@@ -123,6 +127,9 @@ impl TileVisitor for TileCollector<'_> {
 
     fn poi(&mut self, poi: &PoiInfo) {
         let Some(style) = self.styles.poi_style(poi.tag_ids) else { return };
+        if style.min_zoom > self.zoom {
+            return;
+        }
         let at = to_point(self.projection.project(poi.position));
         if at.x < 0 || at.y < 0 || at.x as i32 >= self.screen.width || at.y as i32 >= self.screen.height {
             return;
@@ -141,10 +148,11 @@ impl TileVisitor for TileCollector<'_> {
     }
 
     fn way(&mut self, way: &WayInfo) {
-        let Some(style) = self.styles.way_style(way.tag_ids) else { return };
-        if style.kind == Kind::Poi {
+        let Some(mut style) = self.styles.way_style(way.tag_ids) else { return };
+        if style.kind == Kind::Poi || style.min_zoom > self.zoom {
             return;
         }
+        style.width = style.width_at(self.zoom);
         let start = self.scene.points.len();
         let ring_start = self.scene.rings.len();
         let mut visible = false;
@@ -177,7 +185,7 @@ impl TileVisitor for TileCollector<'_> {
             Shape::Line => self.scene.rings[ring_start] as usize,
             _ => self.scene.points.len() - start,
         };
-        self.scene.commands.push(Command {
+        let command = Command {
             sort_key: Self::sort_key(way.layer, &style),
             shape,
             style,
@@ -185,7 +193,19 @@ impl TileVisitor for TileCollector<'_> {
             len: len as u32,
             ring_start: ring_start as u32,
             ring_count: ring_count as u32,
-        });
+        };
+        if let (Shape::Line, true) = (shape, style.casing > 0) {
+            // white casing below all lines of the layer, sharing the points
+            let casing = Style {
+                color: paint::solid(Ink::White),
+                width: style.width + 2 * style.casing,
+                order: style.casing_order(),
+                casing: 0,
+                ..style
+            };
+            self.scene.commands.push(Command { sort_key: Self::sort_key(way.layer, &casing), style: casing, ..command });
+        }
+        self.scene.commands.push(command);
     }
 }
 
@@ -209,6 +229,7 @@ impl<S: ByteSource> MapFile<S> {
                 projection,
                 screen: &screen,
                 visible_cells: visible_cells(&projection, view, base_zoom),
+                zoom: view.zoom,
             };
             let meta = self.visit_tile(sub_file, index, view.zoom, &mut collector)?;
             if meta.is_water {
@@ -233,7 +254,17 @@ fn add_water_tile(scene: &mut Scene, projection: &TileProjection, view: &View, b
     scene.commands.push(Command {
         sort_key: 0,
         shape: Shape::Polygon,
-        style: Style { kind: Kind::Area, color: styles.water_color(), width: 1, order: 0, checker: false, outline: false },
+        style: Style {
+            kind: Kind::Area,
+            color: styles.water_color(),
+            width: 1,
+            order: order::SEA,
+            outline: None,
+            casing: 0,
+            symbol: Symbol::Disc,
+            min_zoom: 0,
+            shrink: false,
+        },
         start,
         len: 4,
         ring_start: scene.rings.len() as u32 - 1,
@@ -267,10 +298,14 @@ fn emit<D: DrawTarget>(scene: &mut Scene, target: &mut D) {
     for c in &scene.commands {
         let points = &scene.points[c.start as usize..(c.start + c.len) as usize];
         match c.shape {
-            Shape::Point => target.point(points[0], c.style.color, c.style.width),
+            Shape::Point => draw_symbol(target, points[0], &c.style),
+            Shape::Line if c.style.kind == Kind::Area => {
+                // an area that is not closed: its border in the main ink
+                target.polyline(points, paint::ink_a(c.style.color) as u32, 1)
+            }
             Shape::Line => target.polyline(points, c.style.color, c.style.width),
             Shape::Polygon => {
-                let color = if c.style.checker { c.style.color | FILL_CHECKER } else { c.style.color };
+                let color = c.style.color;
                 rings.clear();
                 let mut offset = c.start as usize;
                 for &len in &scene.rings[c.ring_start as usize..(c.ring_start + c.ring_count) as usize] {
@@ -278,15 +313,45 @@ fn emit<D: DrawTarget>(scene: &mut Scene, target: &mut D) {
                     offset += len as usize;
                 }
                 target.fill_polygon(&rings, color);
-                if c.style.outline {
+                if let Some(outline) = c.style.outline {
                     for ring in &rings {
                         closed.clear();
                         closed.extend_from_slice(ring);
                         closed.push(ring[0]);
-                        target.polyline(&closed, c.style.color, 1);
+                        target.polyline(&closed, paint::solid(outline), 1);
                     }
                 }
             }
         }
     }
+}
+
+/// Corners of a POI symbol of radius `r` around `at`.
+fn symbol_ring(symbol: Symbol, at: Point, r: i16) -> ([Point; 4], usize) {
+    let p = |dx: i16, dy: i16| Point { x: at.x.saturating_add(dx), y: at.y.saturating_add(dy) };
+    match symbol {
+        // rows are filled half open (top..bottom - 1), columns inclusive
+        Symbol::Square => ([p(-r, -r), p(r, -r), p(r, r + 1), p(-r, r + 1)], 4),
+        Symbol::Diamond => ([p(0, -r - 1), p(r + 1, 0), p(0, r + 1), p(-r - 1, 0)], 4),
+        Symbol::Triangle => ([p(0, -r - 1), p(r + 1, r + 1), p(-r - 1, r + 1), p(0, 0)], 3),
+        Symbol::Disc => ([at; 4], 0),
+    }
+}
+
+/// POI symbol, with a ring in the outline ink one pixel larger below it.
+fn draw_symbol<D: DrawTarget>(target: &mut D, at: Point, style: &Style) {
+    let r = style.width as i16;
+    if style.symbol == Symbol::Disc {
+        if let Some(outline) = style.outline {
+            target.point(at, paint::solid(outline), style.width + 1);
+        }
+        target.point(at, style.color, style.width);
+        return;
+    }
+    if let Some(outline) = style.outline {
+        let (ring, n) = symbol_ring(style.symbol, at, r + 1);
+        target.fill_polygon(&[&ring[..n]], paint::solid(outline));
+    }
+    let (ring, n) = symbol_ring(style.symbol, at, r);
+    target.fill_polygon(&[&ring[..n]], style.color);
 }

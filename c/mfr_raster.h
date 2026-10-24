@@ -3,6 +3,10 @@
  * top of a single `span` primitive (a horizontal run of pixels of one color). Implement
  * `span` for the framebuffer at hand; it is called with y and x0 <= x1 inside the view only
  * when clipped by mfr_raster_t.width/height.
+ *
+ * All functions accept patterned colors (MFR_PAT_* in mapsforge.h) and resolve them to plain
+ * colors per pixel in absolute screen coordinates, so `span` only ever receives a palette
+ * index (or 0xRRGGBB) without flags. Long runs of the dominant color of a row are one span.
  */
 #ifndef MFR_RASTER_H
 #define MFR_RASTER_H
@@ -15,7 +19,8 @@ typedef struct {
     void (*span)(void* ctx, int y, int x0, int x1, uint32_t color);
     int width;
     int height;
-    /* color of the background, the second color of MFR_FILL_CHECKER fills */
+    /* color of the background: color B of patterns with B = MFR_B_BACKGROUND (and of
+     * MFR_FILL_CHECKER fills) */
     uint32_t white;
 } mfr_raster_t;
 
