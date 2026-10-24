@@ -14,6 +14,7 @@ pub mod blocks;
 pub mod poi;
 pub mod way;
 pub mod visit;
+pub mod view;
 
 pub use error::MapforgeError;
 pub use types::{BoundingBox, MapHeader};
