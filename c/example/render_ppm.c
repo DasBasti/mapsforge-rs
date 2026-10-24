@@ -35,7 +35,7 @@ static void span(void* ctx, int y, int x0, int x1, uint32_t color)
 
 static mfr_raster_t raster_of(canvas_t* c)
 {
-    mfr_raster_t r = { c, span, c->width, c->height };
+    mfr_raster_t r = { c, span, c->width, c->height, c->eink ? 1 : 0xffffff };
     return r;
 }
 

@@ -16,6 +16,14 @@ static void span_clipped(const mfr_raster_t* r, int y, int x0, int x1, uint32_t 
         r->span(r->ctx, y, x0, x1, color);
 }
 
+/* 50% checkerboard: pixels with even x + y get the color, all others the background */
+static void span_checker(const mfr_raster_t* r, int y, int x0, int x1, uint32_t color)
+{
+    span_clipped(r, y, x0, x1, r->white);
+    for (int x = x0 + ((x0 + y) & 1); x <= x1; x += 2)
+        span_clipped(r, y, x, x, color);
+}
+
 static int compare_int(const void* a, const void* b)
 {
     return *(const int*)a - *(const int*)b;
@@ -24,6 +32,8 @@ static int compare_int(const void* a, const void* b)
 void mfr_raster_fill_polygon(const mfr_raster_t* r, const mfr_point_t* points,
                              const uint32_t* ring_lengths, uint32_t ring_count, uint32_t color)
 {
+    int checker = (color & MFR_FILL_CHECKER) != 0;
+    color &= ~MFR_FILL_CHECKER;
     uint32_t total = 0;
     int min_y = r->height, max_y = -1;
     for (uint32_t i = 0; i < ring_count; i++)
@@ -58,7 +68,7 @@ void mfr_raster_fill_polygon(const mfr_raster_t* r, const mfr_point_t* points,
         }
         qsort(crossings, n, sizeof(int), compare_int);
         for (int i = 0; i + 1 < n; i += 2)
-            span_clipped(r, y, crossings[i], crossings[i + 1], color);
+            (checker ? span_checker : span_clipped)(r, y, crossings[i], crossings[i + 1], color);
     }
 }
 

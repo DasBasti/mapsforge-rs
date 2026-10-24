@@ -190,9 +190,11 @@ struct CTarget {
 }
 
 impl CTarget {
+    /// Converts to the palette, keeping the flags above the 24 bit color (`FILL_CHECKER`).
     fn color(&self, rgb: u32, is_line: bool) -> u32 {
+        let flags = rgb & 0xff00_0000;
         if self.palette == MFR_PALETTE_EINK7 {
-            eink7_index(rgb, is_line) as u32
+            eink7_index(rgb & 0x00ff_ffff, is_line) as u32 | flags
         } else {
             rgb
         }

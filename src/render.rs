@@ -20,6 +20,10 @@ pub struct Point {
 }
 
 /// Receives drawing primitives in painting order (back to front).
+/// Flag in the color of `fill_polygon`: fill with a 50% checkerboard of the color and the
+/// background (white) instead of solid.
+pub const FILL_CHECKER: u32 = 1 << 24;
+
 pub trait DrawTarget {
     /// Fills the given rings with the even-odd rule (inner rings are holes).
     fn fill_polygon(&mut self, rings: &[&[Point]], color: u32);
@@ -229,7 +233,7 @@ fn add_water_tile(scene: &mut Scene, projection: &TileProjection, view: &View, b
     scene.commands.push(Command {
         sort_key: 0,
         shape: Shape::Polygon,
-        style: Style { kind: Kind::Area, color: styles.water_color(), width: 1, order: 0 },
+        style: Style { kind: Kind::Area, color: styles.water_color(), width: 1, order: 0, checker: false },
         start,
         len: 4,
         ring_start: scene.rings.len() as u32 - 1,
@@ -265,13 +269,14 @@ fn emit<D: DrawTarget>(scene: &mut Scene, target: &mut D) {
             Shape::Point => target.point(points[0], c.style.color, c.style.width),
             Shape::Line => target.polyline(points, c.style.color, c.style.width),
             Shape::Polygon => {
+                let color = if c.style.checker { c.style.color | FILL_CHECKER } else { c.style.color };
                 rings.clear();
                 let mut offset = c.start as usize;
                 for &len in &scene.rings[c.ring_start as usize..(c.ring_start + c.ring_count) as usize] {
                     rings.push(&scene.points[offset..offset + len as usize]);
                     offset += len as usize;
                 }
-                target.fill_polygon(&rings, c.style.color);
+                target.fill_polygon(&rings, color);
             }
         }
     }

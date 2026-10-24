@@ -15,6 +15,8 @@ typedef struct {
     void (*span)(void* ctx, int y, int x0, int x1, uint32_t color);
     int width;
     int height;
+    /* color of the background, the second color of MFR_FILL_CHECKER fills */
+    uint32_t white;
 } mfr_raster_t;
 
 void mfr_raster_fill_polygon(const mfr_raster_t* r, const mfr_point_t* points,

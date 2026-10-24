@@ -30,6 +30,9 @@ extern "C" {
  * yellow, orange (color_t of the firmware) */
 #define MFR_PALETTE_EINK7 1
 
+/* flag in the color of fill_polygon: fill with a 50% checkerboard of the color and white */
+#define MFR_FILL_CHECKER 0x01000000u
+
 typedef struct mfr_map mfr_map_t;
 
 typedef struct {

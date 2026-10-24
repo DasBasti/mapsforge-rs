@@ -23,6 +23,8 @@ pub struct Style {
     pub width: u8,
     /// draw order within a layer, low values first
     pub order: u8,
+    /// fill with a 50% checkerboard of `color` and the background instead of solid
+    pub checker: bool,
 }
 
 impl Style {
@@ -34,13 +36,17 @@ impl Style {
 }
 
 const fn area(color: u32, order: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Area, color, width: 1, order })
+    Some(Style { kind: Kind::Area, color, width: 1, order, checker: false })
+}
+/// Area filled with a 50% checkerboard of `color` and the background.
+const fn dithered(color: u32, order: u8) -> Option<Style> {
+    Some(Style { kind: Kind::Area, color, width: 1, order, checker: true })
 }
 const fn line(color: u32, width: u8, order: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Line, color, width, order })
+    Some(Style { kind: Kind::Line, color, width, order, checker: false })
 }
 const fn poi(color: u32, radius: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Poi, color, width: radius, order: 100 })
+    Some(Style { kind: Kind::Poi, color, width: radius, order: 100, checker: false })
 }
 
 /// `(key, value pattern, style)`. A pattern ending in `*` matches by prefix, which also
@@ -61,7 +67,7 @@ const WAY_RULES: &[Rule] = &[
     ("waterway", "canal*", line(0x6699cc, 3, 6)),
     ("waterway", "*", line(0x6699cc, 1, 6)),
     // buildings
-    ("building", "*", area(0xd9d0c9, 7)),
+    ("building", "*", dithered(0x000000, 7)),
     // roads
     ("highway", "motorway*", line(0xe892a2, 5, 12)),
     ("highway", "trunk*", line(0xe892a2, 5, 12)),
@@ -248,6 +254,7 @@ mod tests {
         assert_eq!(t.way_style(&[2]).unwrap().kind, Kind::Area);
         assert_eq!(t.way_style(&[3]), None); // hidden route overlay
         assert_eq!(t.way_style(&[4]).unwrap().order, 7);
+        assert!(t.way_style(&[4]).unwrap().checker);
     }
 
     #[test]
@@ -262,7 +269,7 @@ mod tests {
 
     #[test]
     fn rgb565() {
-        let s = Style { kind: Kind::Line, color: 0xffffff, width: 1, order: 0 };
+        let s = Style { kind: Kind::Line, color: 0xffffff, width: 1, order: 0, checker: false };
         assert_eq!(s.rgb565(), 0xffff);
     }
 }
