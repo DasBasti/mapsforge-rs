@@ -11,42 +11,20 @@ e-paper, `display_t` framebuffer, SD card through FatFs under `sd_lock()`).
 | Scanline polygon fill + thick lines on top of one `span` primitive | `c/mfr_raster.{h,c}` |
 | Host example (PPM output, also `eink` palette) | `c/example/render_ppm.c` |
 
-## Build the static library
+## Integration in the firmware (done, branch `feature/vector-map` of IndiaNavi_Firmware)
 
-`libmapsforge_rs.a` has no dependencies besides libc (`malloc`, `free`, `abort`, `mem*`) when built
-without `std`; it provides its own allocator (C heap, so PSRAM when `malloc` is configured to use it)
-and panic handler (abort).
-
-```sh
-# one time: espup install   (Xtensa Rust toolchain)
-cargo +esp build --release -Zbuild-std=core,alloc \
-    --target xtensa-esp32s3-none-elf --no-default-features --features ffi
-# -> target/xtensa-esp32s3-none-elf/release/libmapsforge_rs.a
-```
-(Host check without the toolchain: `cargo build --release --no-default-features --features ffi`.)
-Link it into the firmware as a prebuilt library, e.g. a PlatformIO `extra_scripts` step that runs the
-cargo command and adds `-L... -lmapsforge_rs`, or an ESP-IDF component with
-`add_prebuilt_library`. Add `include/mapsforge.h` and `c/mfr_raster.c` to the include/source path.
-
-## Glue in the firmware (sketch, not compiled yet)
-
-```c
-// read/seek callbacks over FatFs, hold sd_lock() while rendering
-static ssize_t io_read(void* ctx, uint8_t* buf, size_t len) {
-    UINT n; return f_read((FIL*)ctx, buf, len, &n) == FR_OK ? (ssize_t)n : -1;
-}
-static int io_seek(void* ctx, uint64_t off) { return f_lseek((FIL*)ctx, off) == FR_OK ? 0 : -1; }
-
-// span primitive on the display framebuffer; colors are color_t with MFR_PALETTE_EINK7
-static void span(void* ctx, int y, int x0, int x1, uint32_t color) {
-    display_rect_fill((const display_t*)ctx, x0, y, x1 - x0 + 1, 1, (color_t)color);
-}
-// fill_polygon/polyline/point forward to mfr_raster_* with mfr_raster_t{dsp, span, 600, 448}
-// render: mfr_render(map, lat, lon, zoom, 600, 448, MFR_PALETTE_EINK7, &draw);
-```
-
-`mfr_render` can replace `map_update_tiles` + the tile `image_t`s: call it from the map screen's
-render path with the GPS position (`map_position_t`) and zoom level (16 / 14 today).
+- `tools/mapsforge_rs.py` (PlatformIO `extra_scripts`) runs
+  `rustup run esp cargo build --release -Zbuild-std=core,alloc --target xtensa-esp32s3-none-elf --no-default-features --features ffi`
+  and links `libmapsforge_rs.a`. PlatformIO does not run CMake custom targets, hence the script.
+- `components/mapsforge/CMakeLists.txt` compiles `c/mfr_raster.c`, adds the include paths and defines
+  `VECTOR_MAP`. Without the checkout it is an empty component and the firmware uses tiles.
+- `src/esp32/vector_map.c`: FatFs read/seek callbacks, `span` = `display_rect_fill(.., 1 row)`,
+  `mfr_render(.., MFR_PALETTE_EINK7)`. The file is opened per render under `sd_lock()`.
+- `map_screen.c`: if `//MAPS/map.map` exists the `RL_MAP` item draws the vector map, anchored at
+  `(box.left + 256 + pos_x, box.top + 256 + pos_y)` which is where the tile map puts the position,
+  so marker, track and waypoints still fit. The tile loaders are not attached then.
+- Needs `espup` (Xtensa Rust toolchain "esp"). Verified: S3 debug/release and esp32dev debug build and link.
+  Not yet run on a device.
 
 ## Notes / open points
 
