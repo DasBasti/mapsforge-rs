@@ -20,6 +20,9 @@ extern "C" {
 #define MFR_ERR_IO -1       /* file read/seek failed */
 #define MFR_ERR_FORMAT -2   /* not a (supported) Mapsforge file */
 #define MFR_ERR_ARGUMENT -3
+#define MFR_ERR_TAG -4      /* tag id not in the header's tag table */
+#define MFR_ERR_TILE -5     /* tile outside of the map */
+#define MFR_ERR_CORRUPT -6  /* implausible sizes in the file, or out of memory */
 
 /* colors are passed to the draw callbacks as 0xRRGGBB */
 #define MFR_PALETTE_RGB 0
@@ -68,6 +71,9 @@ int mfr_bounds(const mfr_map_t* map, double out[4]);
 int mfr_render(mfr_map_t* map, double lat, double lon, uint8_t zoom, uint16_t width,
                uint16_t height, int16_t anchor_x, int16_t anchor_y, uint8_t palette,
                const mfr_draw_t* draw);
+
+/* Short description of the last error for logs (zero terminated, valid until the next call). */
+const char* mfr_last_error(void);
 
 /* Only when the library is built without std (embedded): the application provides the heap.
  * mfr_alloc returns memory aligned to 8 bytes or NULL, mfr_free releases it. */

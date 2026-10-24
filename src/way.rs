@@ -44,6 +44,11 @@ pub fn process_ways<R: ByteRead + ?Sized>(reader: &mut R, ways_on_query_zoomleve
             way.tag_ids.push(tag_id);
             tags.push(tag::parse_tag(tag_str));
         }
+        for &id in &way.tag_ids {
+            if let Some(kind) = tag::inline_value_kind(&way_tags[id]) {
+                tag::skip_inline_value(reader, kind)?;
+            }
+        }
 
         let flags = reader.read_u8()?;
 
@@ -109,7 +114,10 @@ pub(crate) fn decode_way_nodes<R: ByteRead + ?Sized>(
     if num_way_nodes == 0 {
         return Ok(());
     }
-    out.reserve(num_way_nodes);
+    if num_way_nodes > utils::MAX_ITEMS {
+        return Err(MapforgeError::Corrupt("too many way nodes"));
+    }
+    out.try_reserve(num_way_nodes).map_err(|_| MapforgeError::Corrupt("out of memory for way nodes"))?;
 
     let mut latitude = utils::read_microdegrees(reader)?;
     let mut longitude = utils::read_microdegrees(reader)?;

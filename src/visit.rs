@@ -88,14 +88,21 @@ fn read_signature<R: ByteRead + ?Sized>(reader: &mut R) -> Result<()> {
     reader.read_bytes(&mut sig)
 }
 
-fn read_tag_ids<R: ByteRead + ?Sized>(reader: &mut R, count: u8, table_len: usize, out: &mut Vec<usize>) -> Result<()> {
+/// Reads the tag ids of a feature. Tags with a `%x` value pattern have their value stored after
+/// all ids (see [`tag::inline_value_kind`]), it is skipped here.
+fn read_tag_ids<R: ByteRead + ?Sized>(reader: &mut R, count: u8, table: &[String], out: &mut Vec<usize>) -> Result<()> {
     out.clear();
     for _ in 0..count {
         let id = utils::read_vbe_u_int(reader)?;
-        if id >= table_len {
+        if id >= table.len() {
             return Err(MapforgeError::InvalidTagId(id));
         }
         out.push(id);
+    }
+    for &id in out.iter() {
+        if let Some(kind) = tag::inline_value_kind(&table[id]) {
+            tag::skip_inline_value(reader, kind)?;
+        }
     }
     Ok(())
 }
@@ -201,7 +208,7 @@ fn visit_poi<R: ByteRead + ?Sized, V: TileVisitor>(
     };
     let special_byte = reader.read_u8()?;
     let layer = ((special_byte & POI_LAYER_BITMASK) >> 4) as i8 - tag::LAYER_OFFSET;
-    read_tag_ids(reader, special_byte & POI_NUMBER_OF_TAGS_BITMASK, poi_tags.len(), &mut scratch.tag_ids)?;
+    read_tag_ids(reader, special_byte & POI_NUMBER_OF_TAGS_BITMASK, poi_tags, &mut scratch.tag_ids)?;
 
     let flags = reader.read_u8()?;
     let name = read_optional_str(reader, flags & POI_FEATURE_NAME != 0, &mut scratch.name)?;
@@ -237,7 +244,7 @@ fn visit_way<R: ByteSource + ?Sized, V: TileVisitor>(
 
     let special_byte = reader.read_u8()?;
     let layer = ((special_byte & WAY_LAYER_BITMASK) >> 4) as i8 - tag::LAYER_OFFSET;
-    read_tag_ids(reader, special_byte & WAY_NUMBER_OF_TAGS_BITMASK, way_tags.len(), &mut scratch.tag_ids)?;
+    read_tag_ids(reader, special_byte & WAY_NUMBER_OF_TAGS_BITMASK, way_tags, &mut scratch.tag_ids)?;
 
     let flags = reader.read_u8()?;
     let name = read_optional_str(reader, flags & WAY_FEATURE_NAME != 0, &mut scratch.name)?;
@@ -265,6 +272,9 @@ fn visit_way<R: ByteSource + ?Sized, V: TileVisitor>(
         let num_blocks = utils::read_vbe_u_int(reader)?;
         for _ in 0..num_blocks {
             let num_nodes = utils::read_vbe_u_int(reader)?;
+            if num_nodes > utils::MAX_ITEMS {
+                return Err(MapforgeError::Corrupt("too many way nodes"));
+            }
             if scratch.blocks.len() <= used {
                 scratch.blocks.push(Vec::new());
             }

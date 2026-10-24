@@ -16,6 +16,9 @@ pub const MFR_OK: c_int = 0;
 pub const MFR_ERR_IO: c_int = -1;
 pub const MFR_ERR_FORMAT: c_int = -2;
 pub const MFR_ERR_ARGUMENT: c_int = -3;
+pub const MFR_ERR_TAG: c_int = -4;
+pub const MFR_ERR_TILE: c_int = -5;
+pub const MFR_ERR_CORRUPT: c_int = -6;
 
 /// Colors are passed as 0xRRGGBB.
 pub const MFR_PALETTE_RGB: u8 = 0;
@@ -23,9 +26,46 @@ pub const MFR_PALETTE_RGB: u8 = 0;
 /// yellow, orange (the firmware's `color_t`).
 pub const MFR_PALETTE_EINK7: u8 = 1;
 
+static mut LAST_ERROR: [u8; 64] = [0; 64];
+
+/// Remembers a short description of the last error for `mfr_last_error`.
+fn remember(e: &MapforgeError) {
+    use core::fmt::Write;
+    struct Buf<'a>(&'a mut [u8], usize);
+    impl Write for Buf<'_> {
+        fn write_str(&mut self, s: &str) -> core::fmt::Result {
+            for &b in s.as_bytes() {
+                if self.1 + 1 < self.0.len() {
+                    self.0[self.1] = b;
+                    self.1 += 1;
+                }
+            }
+            Ok(())
+        }
+    }
+    // single threaded use, the C side renders from one task
+    let buf = unsafe { &mut *core::ptr::addr_of_mut!(LAST_ERROR) };
+    buf.fill(0);
+    let _ = match e {
+        MapforgeError::Corrupt(why) => write!(Buf(buf, 0), "corrupt: {why}"),
+        MapforgeError::InvalidTagId(id) => write!(Buf(buf, 0), "tag id {id}"),
+        other => write!(Buf(buf, 0), "{other:?}"),
+    };
+}
+
+/// Description of the last error as a zero terminated string, for logs.
+#[no_mangle]
+pub extern "C" fn mfr_last_error() -> *const core::ffi::c_char {
+    core::ptr::addr_of!(LAST_ERROR) as *const core::ffi::c_char
+}
+
 fn error_code(e: &MapforgeError) -> c_int {
+    remember(e);
     match e {
         MapforgeError::Source => MFR_ERR_IO,
+        MapforgeError::Corrupt(_) => MFR_ERR_CORRUPT,
+        MapforgeError::InvalidTagId(_) => MFR_ERR_TAG,
+        MapforgeError::InvalidTileIndex => MFR_ERR_TILE,
         #[cfg(feature = "std")]
         MapforgeError::Io(_) => MFR_ERR_IO,
         _ => MFR_ERR_FORMAT,

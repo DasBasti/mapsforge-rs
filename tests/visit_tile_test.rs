@@ -93,3 +93,20 @@ fn visit_filters_by_zoom_and_skips_ways() -> Result<()> {
     assert!(map.tile_index_at(sub_file, 0.0, 0.0).is_none());
     Ok(())
 }
+
+/// Optional: a big official map (v5 with `%b`/`%i` inline tag values), set MAPSFORGE_TEST_MAP.
+#[test]
+fn visit_large_official_map() -> Result<()> {
+    let Ok(path) = std::env::var("MAPSFORGE_TEST_MAP") else { return Ok(()) };
+    let mut map = MapFile::open(path)?;
+    let b = map.header.bounding_box;
+    let (lat, lon) = ((b.min_lat + b.max_lat) / 2.0, (b.min_lon + b.max_lon) / 2.0);
+    for zoom in [14u8, 16] {
+        let sub_file = map.sub_file_for_zoom(zoom).unwrap();
+        let idx = map.tile_index_at(sub_file, lat, lon).unwrap();
+        let mut got = Collect::default();
+        map.visit_tile(sub_file, idx, zoom, &mut got)?;
+        assert!(!got.ways.is_empty());
+    }
+    Ok(())
+}

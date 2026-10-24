@@ -1,6 +1,9 @@
 use alloc::{string::String, vec, vec::Vec};
 
-use crate::{io::ByteRead, Result};
+use crate::{error::MapforgeError, io::ByteRead, Result};
+
+/// Upper bound for strings and node lists, anything larger is a damaged file.
+pub const MAX_ITEMS: usize = 1 << 20;
 
 pub const LONGITUDE_MAX: f64 = 180f64;
 pub const LONGITUDE_MIN: f64 = -LONGITUDE_MAX;
@@ -26,6 +29,9 @@ pub fn read_vbe_u<R: ByteRead + ?Sized>(reader: &mut R) -> Result<String> {
         shift += 7
     }
 
+    if length as usize > MAX_ITEMS {
+        return Err(MapforgeError::Corrupt("string too long"));
+    }
     let mut string_bytes = vec![0u8; length as usize];
 
     reader.read_bytes(&mut string_bytes)?;
@@ -38,7 +44,11 @@ pub fn read_vbe_u<R: ByteRead + ?Sized>(reader: &mut R) -> Result<String> {
 /// Invalid UTF-8 is replaced by an empty string.
 pub fn read_vbe_u_buf<'a, R: ByteRead + ?Sized>(reader: &mut R, buf: &'a mut Vec<u8>) -> Result<&'a str> {
     let length = read_vbe_u_int(reader)?;
+    if length > MAX_ITEMS {
+        return Err(MapforgeError::Corrupt("string too long"));
+    }
     buf.clear();
+    buf.try_reserve(length).map_err(|_| MapforgeError::Corrupt("out of memory for a string"))?;
     buf.resize(length, 0);
     reader.read_bytes(buf)?;
     Ok(core::str::from_utf8(buf).unwrap_or(""))

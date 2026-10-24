@@ -39,6 +39,11 @@ pub fn process_pois<R: ByteRead + ?Sized>(reader: &mut R, pois_on_query_zoomleve
             poi.tag_ids.push(tag_id);
             tags.push(tag::parse_tag(tag_str));
         }
+        for &id in &poi.tag_ids {
+            if let Some(kind) = tag::inline_value_kind(&poi_tags[id]) {
+                tag::skip_inline_value(reader, kind)?;
+            }
+        }
 
         let flags = reader.read_u8()?;
         if flags & POI_FEATURE_NAME != 0 {

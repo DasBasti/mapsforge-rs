@@ -13,6 +13,8 @@ pub enum MapforgeError {
     InvalidIndexSignature,
     InvalidTagId(usize),
     InvalidTileIndex,
+    /// Implausible sizes in the file, or out of memory while decoding it.
+    Corrupt(&'static str),
 }
 
 impl fmt::Display for MapforgeError {
@@ -32,6 +34,7 @@ impl fmt::Display for MapforgeError {
                 write!(f, "Tag id {id} is out of range of the header tag table")
             }
             Self::InvalidTileIndex => write!(f, "Requested tile is outside of the map"),
+            Self::Corrupt(why) => write!(f, "Corrupt map data or out of memory: {why}"),
         }
     }
 }
