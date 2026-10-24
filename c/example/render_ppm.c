@@ -95,7 +95,7 @@ int main(int argc, char** argv)
 
     mfr_draw_t draw = { &canvas, fill_polygon, polyline, point };
     int tiles = mfr_render(map, atof(argv[2]), atof(argv[3]), (uint8_t)atoi(argv[4]), canvas.width,
-        canvas.height, canvas.eink ? MFR_PALETTE_EINK7 : MFR_PALETTE_RGB, &draw);
+        canvas.height, canvas.width / 2, canvas.height / 2, canvas.eink ? MFR_PALETTE_EINK7 : MFR_PALETTE_RGB, &draw);
     printf("tiles read: %d\n", tiles);
 
     FILE* out = fopen(argv[5], "wb");

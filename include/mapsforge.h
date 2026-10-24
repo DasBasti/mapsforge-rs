@@ -61,11 +61,13 @@ void mfr_close(mfr_map_t* map);
 /* out = { min_lat, min_lon, max_lat, max_lon } */
 int mfr_bounds(const mfr_map_t* map, double out[4]);
 
-/* Draws the width x height pixel view centered on lat/lon at the zoom level (the Web Mercator
- * zoom of 256 px tiles) through the callbacks, back to front. Returns the number of tiles
- * read or a negative MFR_ERR_*. */
+/* Draws the width x height pixel view at the zoom level (the Web Mercator zoom of 256 px tiles)
+ * through the callbacks, back to front. lat/lon appears at pixel anchor_x/anchor_y (pass
+ * width / 2 and height / 2 to center it). Returns the number of tiles read or a negative
+ * MFR_ERR_*. */
 int mfr_render(mfr_map_t* map, double lat, double lon, uint8_t zoom, uint16_t width,
-               uint16_t height, uint8_t palette, const mfr_draw_t* draw);
+               uint16_t height, int16_t anchor_x, int16_t anchor_y, uint8_t palette,
+               const mfr_draw_t* draw);
 
 #ifdef __cplusplus
 }

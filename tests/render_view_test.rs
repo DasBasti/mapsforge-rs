@@ -68,14 +68,7 @@ fn test_render_view() -> Result<()> {
     }
     let mut map = MapFile::open(MAP_PATH)?;
     let tile_size = map.header.tile_size;
-    let view = |zoom| View {
-        center_lat: 32.6498,
-        center_lon: -16.9086,
-        zoom,
-        width: 480,
-        height: 320,
-        tile_size,
-    };
+    let view = |zoom| View::centered(32.6498, -16.9086, zoom, 480, 320, tile_size);
 
     let v = view(16);
     let near = render_svg(&mut map, v, "target/view_z16.svg")?;

@@ -15,6 +15,9 @@ pub struct View {
     pub zoom: u8,
     pub width: u16,
     pub height: u16,
+    /// Screen pixel the center position is drawn at, usually the middle of the screen.
+    pub anchor_x: i16,
+    pub anchor_y: i16,
     /// Pixel size of a tile at its own zoom level (`MapHeader::tile_size`).
     pub tile_size: u16,
 }
@@ -50,12 +53,26 @@ fn lat_to_y(lat: f64, world: f64) -> f64 {
 }
 
 impl View {
+    /// View with the position in the middle of the screen.
+    pub fn centered(lat: f64, lon: f64, zoom: u8, width: u16, height: u16, tile_size: u16) -> Self {
+        Self {
+            center_lat: lat,
+            center_lon: lon,
+            zoom,
+            width,
+            height,
+            anchor_x: (width / 2) as i16,
+            anchor_y: (height / 2) as i16,
+            tile_size,
+        }
+    }
+
     /// Global pixel position of the screen's top-left corner.
     fn top_left(&self) -> (f64, f64) {
         let world = world_pixels(self.zoom, self.tile_size);
         (
-            lon_to_x(self.center_lon, world) - self.width as f64 / 2.0,
-            lat_to_y(self.center_lat, world) - self.height as f64 / 2.0,
+            lon_to_x(self.center_lon, world) - self.anchor_x as f64,
+            lat_to_y(self.center_lat, world) - self.anchor_y as f64,
         )
     }
 
@@ -135,7 +152,7 @@ mod tests {
     use super::*;
 
     fn view(zoom: u8) -> View {
-        View { center_lat: 32.6669, center_lon: -16.9241, zoom, width: 480, height: 320, tile_size: 256 }
+        View::centered(32.6669, -16.9241, zoom, 480, 320, 256)
     }
 
     /// The tile containing the view centre must project the centre to the screen middle.
@@ -172,5 +189,27 @@ mod tests {
         // 480x320 px at tile size 256 touches at most 3x3 tiles (2 apart)
         assert!(r.x_max - r.x_min <= 2 && r.y_max - r.y_min <= 2);
         assert!(r.iter().count() >= 1);
+    }
+}
+
+#[cfg(test)]
+mod anchor_tests {
+    use super::*;
+
+    #[test]
+    fn anchor_moves_position_on_screen() {
+        let mut v = View::centered(32.6669, -16.9241, 16, 600, 448, 256);
+        v.anchor_x = 100;
+        v.anchor_y = 400;
+        let n = (1u64 << 16) as f64;
+        let rad = v.center_lat * PI / 180.0;
+        let x = math::floor((v.center_lon + 180.0) / 360.0 * n) as i32;
+        let y = math::floor((1.0 - math::ln(math::tan(rad) + 1.0 / math::cos(rad)) / PI) / 2.0 * n) as i32;
+        let p = v.tile_projection(x, y, 16);
+        let (px, py) = p.project(LatLong {
+            latitude: v.center_lat - tile_to_lat(y as u32, 16),
+            longitude: v.center_lon - tile_to_lon(x as u32, 16),
+        });
+        assert!((px - 100.0).abs() < 0.5 && (py - 400.0).abs() < 0.5, "{px},{py}");
     }
 }

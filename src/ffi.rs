@@ -238,8 +238,8 @@ pub unsafe extern "C" fn mfr_bounds(map: *const MfrMap, out: *mut f64) -> c_int 
     MFR_OK
 }
 
-/// Draws the `width` x `height` pixel view centered on `lat`/`lon` at `zoom` through the
-/// callbacks, back to front. Returns the number of tiles read or a negative `MFR_ERR_*`.
+/// Draws the `width` x `height` pixel view with `lat`/`lon` at pixel `anchor_x`/`anchor_y`
+/// (the middle of the screen if centered) at `zoom` through the callbacks, back to front. Returns the number of tiles read or a negative `MFR_ERR_*`.
 ///
 /// # Safety
 /// `map` must be valid, `draw` point to valid callbacks.
@@ -251,6 +251,8 @@ pub unsafe extern "C" fn mfr_render(
     zoom: u8,
     width: u16,
     height: u16,
+    anchor_x: i16,
+    anchor_y: i16,
     palette: u8,
     draw: *const MfrDraw,
 ) -> c_int {
@@ -258,7 +260,7 @@ pub unsafe extern "C" fn mfr_render(
         return MFR_ERR_ARGUMENT;
     }
     let map = &mut *map;
-    let view = View { center_lat: lat, center_lon: lon, zoom, width, height, tile_size: map.map.header.tile_size };
+    let view = View { center_lat: lat, center_lon: lon, zoom, width, height, anchor_x, anchor_y, tile_size: map.map.header.tile_size };
     let mut target = CTarget { draw: *draw, palette, points: Vec::new(), lengths: Vec::new() };
     match map.map.render(&view, &map.styles, &mut target) {
         Ok(tiles) => tiles as c_int,
