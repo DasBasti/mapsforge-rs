@@ -274,26 +274,30 @@ mod runtime {
     use core::ffi::c_void;
 
     extern "C" {
-        fn malloc(size: usize) -> *mut c_void;
-        fn free(ptr: *mut c_void);
+        /// Provided by the application: memory aligned to 8 bytes, null if out of memory.
+        fn mfr_alloc(size: usize) -> *mut c_void;
+        fn mfr_free(ptr: *mut c_void);
         fn abort() -> !;
     }
 
-    /// Forwards to the C heap (on ESP-IDF this can live in PSRAM).
-    struct CAllocator;
+    /// Forwards to the application's heap, so it decides where the memory comes from (on the
+    /// ESP32 PSRAM, which keeps the scarce internal RAM free for DMA buffers).
+    struct AppAllocator;
 
-    unsafe impl GlobalAlloc for CAllocator {
+    unsafe impl GlobalAlloc for AppAllocator {
         unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-            // malloc is aligned for any primitive type, which is all this crate needs
-            malloc(layout.size()) as *mut u8
+            if layout.align() > 8 {
+                return core::ptr::null_mut();
+            }
+            mfr_alloc(layout.size()) as *mut u8
         }
         unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-            free(ptr as *mut c_void)
+            mfr_free(ptr as *mut c_void)
         }
     }
 
     #[global_allocator]
-    static ALLOCATOR: CAllocator = CAllocator;
+    static ALLOCATOR: AppAllocator = AppAllocator;
 
     #[panic_handler]
     fn panic(_: &core::panic::PanicInfo) -> ! {

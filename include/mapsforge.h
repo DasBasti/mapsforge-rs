@@ -69,6 +69,11 @@ int mfr_render(mfr_map_t* map, double lat, double lon, uint8_t zoom, uint16_t wi
                uint16_t height, int16_t anchor_x, int16_t anchor_y, uint8_t palette,
                const mfr_draw_t* draw);
 
+/* Only when the library is built without std (embedded): the application provides the heap.
+ * mfr_alloc returns memory aligned to 8 bytes or NULL, mfr_free releases it. */
+void* mfr_alloc(size_t size);
+void mfr_free(void* ptr);
+
 #ifdef __cplusplus
 }
 #endif

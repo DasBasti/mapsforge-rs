@@ -16,8 +16,8 @@ crate-type = ["rlib", "staticlib"]
 [features]
 default = ["std"]
 std = []
-# C API (see include/mapsforge.h). Without `std` the library brings its own allocator
-# (C malloc/free) and panic handler (abort).
+# C API (see include/mapsforge.h). Without `std` the library needs `mfr_alloc`/`mfr_free` from
+# the application, and brings its own panic handler (abort).
 ffi = []
 
 [profile.release]
