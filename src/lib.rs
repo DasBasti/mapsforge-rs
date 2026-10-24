@@ -13,6 +13,7 @@ pub mod tag;
 pub mod blocks;
 pub mod poi;
 pub mod way;
+pub mod visit;
 
 pub use error::MapforgeError;
 pub use types::{BoundingBox, MapHeader};

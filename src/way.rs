@@ -33,7 +33,7 @@ pub fn process_ways<R: ByteRead + ?Sized>(reader: &mut R, ways_on_query_zoomleve
         way.sub_tile_bitmap = reader.read_u16_be()?;
 
         let special_byte = reader.read_u8()?;
-        way.layer = ((special_byte & WAY_LAYER_BITMASK) >> WAY_LAYER_SHIFT) as i8;
+        way.layer = ((special_byte & WAY_LAYER_BITMASK) >> WAY_LAYER_SHIFT) as i8 - tag::LAYER_OFFSET;
         let number_of_tags = special_byte & WAY_NUMBER_OF_TAGS_BITMASK;
 
         way.tag_ids = Vec::with_capacity(number_of_tags as usize);
@@ -84,11 +84,9 @@ pub fn process_ways<R: ByteRead + ?Sized>(reader: &mut R, ways_on_query_zoomleve
             let num_way_coordinate_blocks = utils::read_vbe_u_int(reader)?;
             for _ in 0..num_way_coordinate_blocks {
                 let num_way_nodes = utils::read_vbe_u_int(reader)?;
-                let block = if way.double_delta_encoding {
-                    decode_way_nodes_double_delta(reader, num_way_nodes)?
-                } else {
-                    decode_way_nodes_single_delta(reader, num_way_nodes)?
-                };
+                let mut block: WayCoordinateBlock = Default::default();
+                decode_way_nodes(reader, num_way_nodes, way.double_delta_encoding, &mut block.coordinates)?;
+                block.initial_position = block.coordinates.first().copied().unwrap_or_default();
                 way.coordinate_blocks.push(block);
             }
         }
@@ -98,65 +96,41 @@ pub fn process_ways<R: ByteRead + ?Sized>(reader: &mut R, ways_on_query_zoomleve
     Ok(ways)
 }
 
-fn clamp_longitude(longitude: f64) -> f64 {
-    // Decoding near the international date line can return values slightly outside
-    // [-180°, 180°] due to calculation precision
-    if longitude < utils::LONGITUDE_MIN && (utils::LONGITUDE_MIN - longitude) < 0.001 {
-        utils::LONGITUDE_MIN
-    } else if longitude > utils::LONGITUDE_MAX && (longitude - utils::LONGITUDE_MAX) < 0.001 {
-        utils::LONGITUDE_MAX
-    } else {
-        longitude
-    }
-}
-
-fn decode_way_nodes_double_delta<R: ByteRead + ?Sized>(reader: &mut R, num_way_nodes: usize) -> Result<WayCoordinateBlock> {
-    let mut block: WayCoordinateBlock = Default::default();
+/// Decodes `num_way_nodes` nodes into `out` (cleared first). Coordinates are offsets from the
+/// tile's top-left corner: the first node is stored as is, all following ones as deltas
+/// (single delta) or deltas of deltas (double delta) that are accumulated here.
+pub(crate) fn decode_way_nodes<R: ByteRead + ?Sized>(
+    reader: &mut R,
+    num_way_nodes: usize,
+    double_delta: bool,
+    out: &mut Vec<LatLong>,
+) -> Result<()> {
+    out.clear();
     if num_way_nodes == 0 {
-        return Ok(block);
+        return Ok(());
     }
-    block.coordinates.reserve(num_way_nodes);
+    out.reserve(num_way_nodes);
 
     let mut latitude = utils::read_microdegrees(reader)?;
     let mut longitude = utils::read_microdegrees(reader)?;
-    block.initial_position = LatLong { latitude, longitude };
-    block.coordinates.push(block.initial_position);
+    out.push(LatLong { latitude, longitude });
 
-    let mut previous_single_delta_latitude = 0f64;
-    let mut previous_single_delta_longitude = 0f64;
+    let mut delta_latitude = 0f64;
+    let mut delta_longitude = 0f64;
     for _ in 1..num_way_nodes {
-        let single_delta_latitude = utils::read_microdegrees(reader)? + previous_single_delta_latitude;
-        let single_delta_longitude = utils::read_microdegrees(reader)? + previous_single_delta_longitude;
-
-        latitude += single_delta_latitude;
-        longitude = clamp_longitude(longitude + single_delta_longitude);
-
-        previous_single_delta_latitude = single_delta_latitude;
-        previous_single_delta_longitude = single_delta_longitude;
-
-        block.coordinates.push(LatLong { latitude, longitude });
+        let lat = utils::read_microdegrees(reader)?;
+        let lon = utils::read_microdegrees(reader)?;
+        if double_delta {
+            delta_latitude += lat;
+            delta_longitude += lon;
+        } else {
+            delta_latitude = lat;
+            delta_longitude = lon;
+        }
+        latitude += delta_latitude;
+        longitude += delta_longitude;
+        out.push(LatLong { latitude, longitude });
     }
 
-    Ok(block)
-}
-
-fn decode_way_nodes_single_delta<R: ByteRead + ?Sized>(reader: &mut R, num_way_nodes: usize) -> Result<WayCoordinateBlock> {
-    let mut block: WayCoordinateBlock = Default::default();
-    if num_way_nodes == 0 {
-        return Ok(block);
-    }
-    block.coordinates.reserve(num_way_nodes);
-
-    let mut latitude = utils::read_microdegrees(reader)?;
-    let mut longitude = utils::read_microdegrees(reader)?;
-    block.initial_position = LatLong { latitude, longitude };
-    block.coordinates.push(block.initial_position);
-
-    for _ in 1..num_way_nodes {
-        latitude += utils::read_microdegrees(reader)?;
-        longitude = clamp_longitude(longitude + utils::read_microdegrees(reader)?);
-        block.coordinates.push(LatLong { latitude, longitude });
-    }
-
-    Ok(block)
+    Ok(())
 }

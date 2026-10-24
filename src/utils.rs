@@ -34,6 +34,16 @@ pub fn read_vbe_u<R: ByteRead + ?Sized>(reader: &mut R) -> Result<String> {
         .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned()))
 }
 
+/// Like [`read_vbe_u`] but reuses `buf` and borrows from it instead of allocating.
+/// Invalid UTF-8 is replaced by an empty string.
+pub fn read_vbe_u_buf<'a, R: ByteRead + ?Sized>(reader: &mut R, buf: &'a mut Vec<u8>) -> Result<&'a str> {
+    let length = read_vbe_u_int(reader)?;
+    buf.clear();
+    buf.resize(length, 0);
+    reader.read_bytes(buf)?;
+    Ok(core::str::from_utf8(buf).unwrap_or(""))
+}
+
 pub fn read_vbe_u_int<R: ByteRead + ?Sized>(reader: &mut R) -> Result<usize> {
     let mut length = 0usize;
 

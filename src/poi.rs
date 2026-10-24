@@ -28,7 +28,7 @@ pub fn process_pois<R: ByteRead + ?Sized>(reader: &mut R, pois_on_query_zoomleve
         };
         
         let special_byte = reader.read_u8()?;   
-        poi.layer = ((special_byte & POI_LAYER_BITMASK) >> POI_LAYER_SHIFT) as i8;
+        poi.layer = ((special_byte & POI_LAYER_BITMASK) >> POI_LAYER_SHIFT) as i8 - tag::LAYER_OFFSET;
         let number_of_tags = special_byte & POI_NUMBER_OF_TAGS_BITMASK;
 
         poi.tag_ids = Vec::with_capacity(number_of_tags as usize);

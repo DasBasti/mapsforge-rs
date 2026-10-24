@@ -3,6 +3,8 @@ use alloc::string::ToString;
 use crate::{types::Tag, utils};
 
 pub const KEY_VALUE_SEPERATOR: char = '=';
+/// Layers are stored as 0..=10 with 5 meaning layer 0.
+pub const LAYER_OFFSET: i8 = 5;
 pub const TAG_KEY_NAME: &str = "name";
 pub const TAG_KEY_HOUSE_NUMBER: &str = "addr:housenumber";
 pub const TAG_KEY_REF: &str = "ref";
