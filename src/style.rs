@@ -69,18 +69,33 @@ const WAY_RULES: &[Rule] = &[
     // buildings
     ("building", "*", dithered(0x000000, 7)),
     // roads
-    ("highway", "motorway*", line(0xe892a2, 5, 12)),
-    ("highway", "trunk*", line(0xe892a2, 5, 12)),
-    ("highway", "primary*", line(0xfcd6a4, 4, 12)),
-    ("highway", "secondary*", line(0xf7fabf, 4, 12)),
-    ("highway", "tertiary*", line(0xffffff, 3, 12)),
-    ("highway", "residential*", line(0xffffff, 2, 12)),
-    ("highway", "unclassified*", line(0xffffff, 2, 12)),
-    ("highway", "living_street*", line(0xffffff, 2, 12)),
-    ("highway", "service*", line(0xffffff, 1, 12)),
-    ("highway", "pedestrian*", line(0xe0d8d0, 2, 12)),
-    ("highway", "steps*", line(0xfa8072, 1, 12)),
-    ("highway", "*", line(0xa06030, 1, 12)),
+    // Roads for hiking: everything walkable is drawn thicker than the roads that are for cars
+    // only, and on top of them. Paths and tracks are the thickest.
+    ("highway", "path*", line(0x000000, 4, 14)),
+    ("highway", "footway*", line(0x000000, 4, 14)),
+    ("highway", "fussweg*", line(0x000000, 4, 14)),
+    ("highway", "bergweg*", line(0x000000, 4, 14)),
+    ("highway", "steps*", line(0xc81e1e, 4, 14)),
+    ("highway", "track*", line(0x000000, 4, 14)),
+    ("highway", "feldweg*", line(0x000000, 4, 14)),
+    ("highway", "bridleway*", line(0x000000, 4, 14)),
+    ("highway", "reitweg*", line(0x000000, 4, 14)),
+    ("highway", "cycleway*", line(0x000000, 4, 14)),
+    ("highway", "radfussweg*", line(0x000000, 4, 14)),
+    ("highway", "radweg*", line(0x000000, 4, 14)),
+    ("highway", "pedestrian*", line(0x000000, 4, 14)),
+    // streets in towns and villages are walkable
+    ("highway", "living_street*", line(0x000000, 3, 13)),
+    ("highway", "residential*", line(0x000000, 3, 13)),
+    ("highway", "unclassified*", line(0x000000, 3, 13)),
+    ("highway", "service*", line(0x000000, 3, 13)),
+    // for cars: thin and colored, so they do not look like a way to walk
+    ("highway", "motorway*", line(0xc81e1e, 2, 12)),
+    ("highway", "trunk*", line(0xc81e1e, 2, 12)),
+    ("highway", "primary*", line(0xc81e1e, 2, 12)),
+    ("highway", "secondary*", line(0xe67828, 2, 12)),
+    ("highway", "tertiary*", line(0xe67828, 2, 12)),
+    ("highway", "*", line(0x000000, 1, 12)),
     // land cover
     ("natural", "wood*", area(0xadd19e, 2)),
     ("landuse", "forest*", area(0xadd19e, 2)),
@@ -250,7 +265,7 @@ mod tests {
         let t = StyleTable::new(&[], &way);
         assert_eq!(t.way_style(&[0]), None);
         let road = t.way_style(&[0, 1]).unwrap();
-        assert_eq!((road.kind, road.width), (Kind::Line, 4));
+        assert_eq!((road.kind, road.width), (Kind::Line, 2));
         assert_eq!(t.way_style(&[2]).unwrap().kind, Kind::Area);
         assert_eq!(t.way_style(&[3]), None); // hidden route overlay
         assert_eq!(t.way_style(&[4]).unwrap().order, 7);
@@ -265,6 +280,20 @@ mod tests {
         assert_eq!(eink7_index(0xe0dfdf, false), 1); // residential area
         assert_eq!(eink7_index(0xffffff, true), 0); // lines are never white
         assert_eq!(eink7_index(0xf2efe9, false), 1); // land
+    }
+
+    #[test]
+    fn walkable_roads_are_thicker_than_car_roads() {
+        let tags = tags(&[
+            "highway=path", "highway=bergweg3", "highway=track", "highway=residential",
+            "highway=service_small", "highway=primary_bridge", "highway=motorway", "highway=secondary",
+        ]);
+        let t = StyleTable::new(&[], &tags);
+        let width = |id: usize| t.way_style(&[id]).unwrap().width;
+        let car_roads = [5, 6, 7].map(width);
+        for walkable in [0, 1, 2, 3, 4] {
+            assert!(car_roads.iter().all(|&c| width(walkable) > c), "tag {walkable}");
+        }
     }
 
     #[test]
