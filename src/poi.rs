@@ -2,27 +2,27 @@ use std::io::{BufReader, Read};
 
 use byteorder::ReadBytesExt;
 
-use crate::{tag, types::{LatLong, Tag, POI}, utils, Result};
+use crate::{error::MapforgeError, tag, types::{LatLong, Tag, POI}, utils, Result};
 
 const POI_LAYER_BITMASK: u8 = 0xf0;
 const POI_NUMBER_OF_TAGS_BITMASK: u8 = 0x0f;
 const POI_LAYER_SHIFT: u8 = 4;
+const POI_FEATURE_NAME: u8 = 0x80;
+const POI_FEATURE_HOUSE_NUMBER: u8 = 0x40;
+const POI_FEATURE_ELEVATION: u8 = 0x20;
 
-pub fn process_pois<R: Read>(reader: &mut BufReader<R>, pois_on_query_zoomlevel: usize, poi_tags: &Vec<String>, debug: bool) -> Result<Vec<POI>> {
+pub fn process_pois<R: Read>(reader: &mut BufReader<R>, pois_on_query_zoomlevel: usize, poi_tags: &[String], debug: bool) -> Result<Vec<POI>> {
     let mut pois: Vec<POI> = Vec::with_capacity(pois_on_query_zoomlevel);
 
     for _ in 0..pois_on_query_zoomlevel {
+        let mut poi_signature = None;
         if debug {
-            let mut sig = [0u8; 16];
+            let mut sig = [0u8; 32];
             reader.read_exact(&mut sig)?;
-            let poi_sig = String::from_utf8_lossy(&sig).trim().to_string();
-
-            println!("POI signature: {poi_sig}");
-        } else {
-            println!("Skip POI signature")
+            poi_signature = Some(String::from_utf8_lossy(&sig).trim().to_string());
         }
 
-        let mut poi: POI = Default::default();
+        let mut poi: POI = POI { debug_signature: poi_signature, ..Default::default() };
             
         poi.position_offset = LatLong {
             latitude: utils::read_microdegrees(reader)?,
@@ -35,17 +35,26 @@ pub fn process_pois<R: Read>(reader: &mut BufReader<R>, pois_on_query_zoomlevel:
 
         poi.tag_ids = Vec::with_capacity(number_of_tags as usize);
         let mut tags: Vec<Tag> = Vec::with_capacity(number_of_tags as usize);
-        for _ in 1..number_of_tags {
+        for _ in 0..number_of_tags {
             let tag_id = utils::read_vbe_u_int(reader)?;
-            if tag_id < poi_tags.len() {
-                let tag_str = poi_tags[tag_id].clone();
-                let kv: Vec<&str> = tag_str.split_terminator(tag::KEY_VALUE_SEPERATOR).collect();
-                let tag = Tag::new(kv[0], kv[1]);
-                poi.tag_ids.push(tag_id);
-                tags.push(tag);
-            } else {
-                panic!("tag_id > list of tags!");
-            }
+            let tag_str = poi_tags.get(tag_id).ok_or(MapforgeError::InvalidTagId(tag_id))?;
+            poi.tag_ids.push(tag_id);
+            tags.push(tag::parse_tag(tag_str));
+        }
+
+        let flags = reader.read_u8()?;
+        if flags & POI_FEATURE_NAME != 0 {
+            let name = utils::read_vbe_u(reader)?;
+            tags.push(Tag::new(tag::TAG_KEY_NAME, &name));
+            poi.name = Some(name);
+        }
+        if flags & POI_FEATURE_HOUSE_NUMBER != 0 {
+            let house_number = utils::read_vbe_u(reader)?;
+            tags.push(Tag::new(tag::TAG_KEY_HOUSE_NUMBER, &house_number));
+            poi.house_number = Some(house_number);
+        }
+        if flags & POI_FEATURE_ELEVATION != 0 {
+            poi.elevation = Some(utils::read_vbe_s_int(reader)? as i32);
         }
         poi.tags = Some(tags);
         pois.push(poi);

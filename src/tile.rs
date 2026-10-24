@@ -8,7 +8,10 @@ use std::{
 use crate::{
     error::MapforgeError,
     header::DEBUG_INFO_MASK,
-    types::{BoundingBox, MapFile, MapHeader, TileIndexEntry},
+    blocks,
+    poi, way,
+    types::{BoundingBox, MapFile, MapHeader, Tile, TileIndexEntry},
+    utils,
     Result,
 };
 
@@ -72,11 +75,68 @@ impl MapFile {
         })
     }
 
-/*
-    pub fn get_tile_at(&mut self, lat: f64, lon:f64, zoom:u8) -> Result<Tile> {
-        
+    /// Reads the tile with the given index (row-major, as stored in the tile index)
+    /// of the given sub file, including all POIs and ways of all its zoom levels.
+    pub fn read_tile(&mut self, sub_file: usize, tile_index: usize) -> Result<Tile> {
+        let entry = self
+            .tile_indices
+            .get(sub_file)
+            .and_then(|t| t.get(tile_index))
+            .ok_or(MapforgeError::InvalidTileIndex)?;
+        let start = entry.offset_abs;
+        let debug = self.header.flags & DEBUG_INFO_MASK != 0;
+        let zoom_interval = &self.header.zoom_interval_configuration[sub_file];
+
+        self.reader.seek(SeekFrom::Start(start))?;
+
+        let mut debug_signature = None;
+        if debug {
+            let mut sig = [0u8; 32];
+            self.reader.read_exact(&mut sig)?;
+            debug_signature = Some(String::from_utf8_lossy(&sig).trim().to_string());
+        }
+
+        let zoom_table = blocks::read_zoom_table(&mut self.reader, zoom_interval)?;
+
+        // offset to the first way, relative to the end of this field
+        let first_way_offset = utils::read_vbe_u_int(&mut self.reader)?;
+        let ways_start = self.reader.stream_position()? + first_way_offset as u64;
+
+        let mut pois = Vec::new();
+        for &(poi_count, _) in &zoom_table {
+            pois.extend(poi::process_pois(&mut self.reader, poi_count, &self.header.poi_tags, debug)?);
+        }
+
+        self.reader.seek(SeekFrom::Start(ways_start))?;
+        let mut ways = Vec::new();
+        for &(_, way_count) in &zoom_table {
+            ways.extend(way::process_ways(&mut self.reader, way_count, &self.header.way_tags, debug)?);
+        }
+
+        Ok(Tile { debug_signature, zoom_table, first_way_offset, pois, ways })
     }
-*/
+
+    /// Reads the tile covering `lat`/`lon` from the sub file serving `zoom`.
+    pub fn read_tile_at(&mut self, lat: f64, lon: f64, zoom: u8) -> Result<Tile> {
+        let sub_file = self
+            .header
+            .zoom_interval_configuration
+            .iter()
+            .position(|z| (z.min_zoom_level..=z.max_zoom_level).contains(&zoom))
+            .ok_or(MapforgeError::InvalidTileIndex)?;
+        let base_zoom = self.header.zoom_interval_configuration[sub_file].base_zoom_level;
+
+        let bbox = self.header.bounding_box;
+        let (x_min, y_min) = Self::get_tiles(bbox.max_lat, bbox.min_lon, base_zoom);
+        let (x_max, _) = Self::get_tiles(bbox.min_lat, bbox.max_lon, base_zoom);
+        let (x, y) = Self::get_tiles(lat, lon, base_zoom);
+        let columns = x_max - x_min + 1;
+        if x < x_min || x > x_max || y < y_min {
+            return Err(MapforgeError::InvalidTileIndex);
+        }
+
+        self.read_tile(sub_file, ((y - y_min) * columns + (x - x_min)) as usize)
+    }
     pub fn calculate_total_tiles(bounding_box: &BoundingBox, zoom: u8) -> u32 {
         // X calculation (longitude)
         let x_min =

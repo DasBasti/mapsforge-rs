@@ -94,15 +94,12 @@ pub fn microdegrees_to_degrees(microdegrees: isize) ->  f64 {
     microdegrees as f64 / 1_000_000.0
 }
 
-pub fn decode_poi_tag(tag_id: usize) {
-
-}
-
 pub fn hash_tag_parameter(key_value: &str) -> usize {
-    let n = key_value.len();
+    let chars: Vec<char> = key_value.chars().collect();
+    let n = chars.len();
     let mut hash: usize = 0;
-    for i in 0..n {
-        hash = hash.wrapping_add(key_value.chars().nth(i).unwrap() as usize).wrapping_mul(31_usize.wrapping_pow((n - i + 1) as u32));
+    for (i, c) in chars.into_iter().enumerate() {
+        hash = hash.wrapping_add(c as usize).wrapping_mul(31_usize.wrapping_pow((n - i + 1) as u32));
     }
     hash
 }

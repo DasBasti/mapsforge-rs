@@ -76,8 +76,8 @@ pub struct Tile {
     pub debug_signature: Option<String>,
     
 
-    pub zoom_table: Vec<(u32, u32)>, 
-    pub first_way_offset: u32,
+    pub zoom_table: Vec<(usize, usize)>,
+    pub first_way_offset: usize,
     
   
     pub pois: Vec<POI>,

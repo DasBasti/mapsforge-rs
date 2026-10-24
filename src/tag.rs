@@ -15,3 +15,12 @@ impl Tag {
         }
     }
 }
+
+/// Splits a header tag string like `highway=bus_stop` into a [`Tag`].
+/// Tags without a value (no `=`) get an empty value.
+pub fn parse_tag(tag_str: &str) -> Tag {
+    match tag_str.split_once(KEY_VALUE_SEPERATOR) {
+        Some((key, value)) => Tag::new(key, value),
+        None => Tag::new(tag_str, ""),
+    }
+}

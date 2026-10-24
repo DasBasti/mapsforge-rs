@@ -3,7 +3,7 @@ use mapsforge_rs::types::MapFile;
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let map = MapFile::open("test_data/test_map.map")?;
+    let map = MapFile::open("../garmin-img/tests/assets/Freizeitkarte_MADEIRA.map")?;
     
     println!("Header: {:#?}", map.header);
     

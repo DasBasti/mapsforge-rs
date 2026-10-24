@@ -20,4 +20,10 @@ pub enum MapforgeError {
 
     #[error("Invalid tile index signature")]
     InvalidIndexSignature,
+
+    #[error("Tag id {0} is out of range of the header tag table")]
+    InvalidTagId(usize),
+
+    #[error("Requested tile is outside of the map")]
+    InvalidTileIndex,
 }
