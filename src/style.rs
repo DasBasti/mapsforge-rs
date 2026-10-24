@@ -186,6 +186,49 @@ impl StyleTable {
     }
 }
 
+// Palette indices of the 7-color e-paper (ACeP), the order of the firmware's `color_t`.
+const EINK7_BLACK: u8 = 0;
+const EINK7_WHITE: u8 = 1;
+const EINK7_GREEN: u8 = 2;
+const EINK7_BLUE: u8 = 3;
+const EINK7_RED: u8 = 4;
+const EINK7_YELLOW: u8 = 5;
+const EINK7_ORANGE: u8 = 6;
+
+/// Palette index for the e-paper. The few pure colors of the panel cannot show the pastel
+/// map colors, so the hue picks the panel color and weak saturation becomes white (or black
+/// for dark colors and for lines, where white would be invisible on the white background).
+pub fn eink7_index(rgb: u32, is_line: bool) -> u8 {
+    let r = ((rgb >> 16) & 0xff) as i32;
+    let g = ((rgb >> 8) & 0xff) as i32;
+    let b = (rgb & 0xff) as i32;
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let chroma = max - min;
+
+    // saturation below ~15%: grey scale
+    if chroma * 100 < max * 15 || max == 0 {
+        return if is_line || max < 140 { EINK7_BLACK } else { EINK7_WHITE };
+    }
+
+    // hue in degrees
+    let h = if max == r {
+        60 * (g - b) / chroma
+    } else if max == g {
+        60 * (b - r) / chroma + 120
+    } else {
+        60 * (r - g) / chroma + 240
+    };
+    let hue = (h + 360) % 360;
+    match hue {
+        0..=19 | 340..=359 => EINK7_RED,
+        20..=44 => EINK7_ORANGE,
+        45..=69 => EINK7_YELLOW,
+        70..=169 => EINK7_GREEN,
+        _ => EINK7_BLUE,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,6 +248,16 @@ mod tests {
         assert_eq!(t.way_style(&[2]).unwrap().kind, Kind::Area);
         assert_eq!(t.way_style(&[3]), None); // hidden route overlay
         assert_eq!(t.way_style(&[4]).unwrap().order, 7);
+    }
+
+    #[test]
+    fn eink_palette() {
+        assert_eq!(eink7_index(0xaad3df, false), 3); // sea
+        assert_eq!(eink7_index(0xadd19e, false), 2); // forest
+        assert_eq!(eink7_index(0xf7fabf, true), 5); // secondary road
+        assert_eq!(eink7_index(0xe0dfdf, false), 1); // residential area
+        assert_eq!(eink7_index(0xffffff, true), 0); // lines are never white
+        assert_eq!(eink7_index(0xf2efe9, false), 1); // land
     }
 
     #[test]

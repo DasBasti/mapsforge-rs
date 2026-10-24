@@ -17,6 +17,8 @@ pub mod visit;
 pub mod view;
 pub mod style;
 pub mod render;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 
 pub use error::MapforgeError;
 pub use types::{BoundingBox, MapHeader};
