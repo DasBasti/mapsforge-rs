@@ -172,7 +172,13 @@ pub struct Style {
     pub min_zoom: u8,
     /// roads: one pixel thinner below zoom 15, where a 4x smaller scale packs them densely
     pub shrink: bool,
+    /// POIs: the name is drawn as a label instead of a symbol, 1 is the most important (city)
+    /// up to [`LABEL_RANKS`]; 0 = no label
+    pub label: u8,
 }
+
+/// Number of label importance levels of [`Style::label`].
+pub const LABEL_RANKS: u8 = 4;
 
 impl Style {
     /// Draw order of the casing.
@@ -242,6 +248,7 @@ const BASE: Style = Style {
     symbol: Symbol::Disc,
     min_zoom: 0,
     shrink: false,
+    label: 0,
 };
 
 const fn area(color: u32, order: u8) -> Option<Style> {
@@ -268,6 +275,10 @@ const fn minor_road(color: u32, width: u8, order: u8) -> Option<Style> {
 }
 const fn poi(symbol: Symbol, color: u32, radius: u8, min_zoom: u8) -> Option<Style> {
     Some(Style { kind: Kind::Poi, color, width: radius, order: order::POI, outline: Some(Black), symbol, min_zoom, ..BASE })
+}
+/// Place name: no symbol, the name of the POI is drawn.
+const fn place(rank: u8, min_zoom: u8) -> Option<Style> {
+    Some(Style { kind: Kind::Poi, order: order::POI, min_zoom, label: rank, ..BASE })
 }
 /// Black symbol with a white halo, so it stays apart from the black paths it often sits on.
 const fn poi_plain(symbol: Symbol, color: u32, radius: u8, min_zoom: u8) -> Option<Style> {
@@ -432,6 +443,12 @@ const WAY_RULES: &[Rule] = &[
 ];
 
 const POI_RULES: &[Rule] = &[
+    // place names
+    ("place", "city", place(1, 0)),
+    ("place", "town", place(2, 0)),
+    ("place", "village", place(3, 0)),
+    ("place", "suburb", place(4, 15)),
+    ("place", "hamlet", place(4, 15)),
     // mountains
     ("natural", "peak", poi_plain(Symbol::Triangle, solid(Black), 4, 0)),
     ("natural", "volcano", poi_plain(Symbol::Triangle, solid(Black), 4, 0)),
@@ -583,6 +600,16 @@ mod tests {
 
     fn tags(t: &[&str]) -> Vec<String> {
         t.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn places_are_labels_by_importance() {
+        let t = StyleTable::new(&tags(&["place=city", "place=village", "place=hamlet", "amenity=bench"]), &[]);
+        let rank = |id: usize| t.poi_style(&[id]).map(|s| (s.label, s.min_zoom));
+        assert_eq!(rank(0), Some((1, 0)));
+        assert_eq!(rank(1), Some((3, 0)));
+        assert_eq!(rank(2), Some((4, 15)));
+        assert_eq!(rank(3), None);
     }
 
     fn table(t: &[&str]) -> StyleTable {

@@ -1,7 +1,7 @@
 //! Renders a [`View`] of a map to simple drawing primitives. All visible tiles are decoded,
 //! projected to screen pixels, culled and sorted into drawing order; the result is then
 //! emitted to a [`DrawTarget`], which can be a C framebuffer rasterizer.
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 
 use crate::{
     io::ByteSource,
@@ -32,6 +32,9 @@ pub trait DrawTarget {
     fn fill_polygon(&mut self, rings: &[&[Point]], color: u32);
     fn polyline(&mut self, points: &[Point], color: u32, width: u8);
     fn point(&mut self, at: Point, color: u32, radius: u8);
+    /// A name (UTF-8) at a place, called after all shapes, most important names (rank 1) first,
+    /// so the target can skip the ones that would overlap. `at` is the position of the place.
+    fn label(&mut self, _at: Point, _text: &str, _rank: u8) {}
 }
 
 #[derive(Clone, Copy)]
@@ -59,6 +62,17 @@ struct Scene {
     points: Vec<Point>,
     /// lengths of the rings of polygon commands
     rings: Vec<u32>,
+    labels: Vec<Label>,
+    /// names of the labels back to back
+    text: String,
+}
+
+/// A name to draw at a pixel, the text is `Scene::text[start..start + len]`.
+struct Label {
+    at: Point,
+    rank: u8,
+    start: u32,
+    len: u32,
 }
 
 struct Screen {
@@ -132,6 +146,14 @@ impl TileVisitor for TileCollector<'_> {
         }
         let at = to_point(self.projection.project(poi.position));
         if at.x < 0 || at.y < 0 || at.x as i32 >= self.screen.width || at.y as i32 >= self.screen.height {
+            return;
+        }
+        if style.label > 0 {
+            if let Some(name) = poi.name.filter(|n| !n.is_empty()) {
+                let start = self.scene.text.len() as u32;
+                self.scene.text.push_str(name);
+                self.scene.labels.push(Label { at, rank: style.label, start, len: name.len() as u32 });
+            }
             return;
         }
         let start = self.scene.points.len() as u32;
@@ -264,6 +286,7 @@ fn add_water_tile(scene: &mut Scene, projection: &TileProjection, view: &View, b
             symbol: Symbol::Disc,
             min_zoom: 0,
             shrink: false,
+            label: 0,
         },
         start,
         len: 4,
@@ -323,6 +346,12 @@ fn emit<D: DrawTarget>(scene: &mut Scene, target: &mut D) {
                 }
             }
         }
+    }
+
+    // names on top of everything, the most important first
+    scene.labels.sort_by_key(|l| l.rank);
+    for l in &scene.labels {
+        target.label(l.at, &scene.text[l.start as usize..(l.start + l.len) as usize], l.rank);
     }
 }
 

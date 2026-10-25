@@ -99,6 +99,10 @@ typedef struct {
     void (*polyline)(void* ctx, const mfr_point_t* points, uint32_t count, uint32_t color,
                      uint8_t width);
     void (*point)(void* ctx, mfr_point_t at, uint32_t color, uint8_t radius);
+    /* optional (may be NULL): the name of a place (city, town, village...) at its position, called
+     * after all shapes, rank 1 (city) to 4 (hamlet) in this order, so names that do not fit can be
+     * skipped. text is UTF-8 and not zero terminated. */
+    void (*label)(void* ctx, mfr_point_t at, const char* text, uint32_t len, uint8_t rank);
 } mfr_draw_t;
 
 /* Opens a map. Returns NULL on failure, err (optional) receives MFR_OK or MFR_ERR_*.

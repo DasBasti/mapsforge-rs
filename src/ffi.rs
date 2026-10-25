@@ -181,6 +181,8 @@ pub struct MfrDraw {
     ),
     pub polyline: extern "C" fn(ctx: *mut c_void, points: *const Point, count: u32, color: u32, width: u8),
     pub point: extern "C" fn(ctx: *mut c_void, at: Point, color: u32, radius: u8),
+    /// optional: names of places, UTF-8 (not zero terminated)
+    pub label: Option<extern "C" fn(ctx: *mut c_void, at: Point, text: *const u8, len: u32, rank: u8)>,
 }
 
 struct CTarget {
@@ -222,6 +224,12 @@ impl DrawTarget for CTarget {
 
     fn point(&mut self, at: Point, color: u32, radius: u8) {
         (self.draw.point)(self.draw.ctx, at, self.color(color), radius);
+    }
+
+    fn label(&mut self, at: Point, text: &str, rank: u8) {
+        if let Some(label) = self.draw.label {
+            label(self.draw.ctx, at, text.as_ptr(), text.len() as u32, rank);
+        }
     }
 }
 
