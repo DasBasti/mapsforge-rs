@@ -7,6 +7,7 @@ use crate::{
     io::{ByteRead, ByteSource},
     render::{DrawTarget, Point},
     style::{paint, StyleTable},
+    stylesheet::Stylesheet,
     types::MapFile,
     view::View,
     Result,
@@ -19,6 +20,7 @@ pub const MFR_ERR_ARGUMENT: c_int = -3;
 pub const MFR_ERR_TAG: c_int = -4;
 pub const MFR_ERR_TILE: c_int = -5;
 pub const MFR_ERR_CORRUPT: c_int = -6;
+pub const MFR_ERR_STYLE: c_int = -7;
 
 /// Colors are passed as 0xRRGGBB.
 pub const MFR_PALETTE_RGB: u8 = 0;
@@ -27,10 +29,10 @@ pub const MFR_PALETTE_RGB: u8 = 0;
 /// `MFR_PAT_*` in `include/mapsforge.h`).
 pub const MFR_PALETTE_EINK7: u8 = 1;
 
-static mut LAST_ERROR: [u8; 64] = [0; 64];
+static mut LAST_ERROR: [u8; 96] = [0; 96];
 
 /// Remembers a short description of the last error for `mfr_last_error`.
-fn remember(e: &MapforgeError) {
+fn remember_text(text: core::fmt::Arguments) {
     use core::fmt::Write;
     struct Buf<'a>(&'a mut [u8], usize);
     impl Write for Buf<'_> {
@@ -47,11 +49,15 @@ fn remember(e: &MapforgeError) {
     // single threaded use, the C side renders from one task
     let buf = unsafe { &mut *core::ptr::addr_of_mut!(LAST_ERROR) };
     buf.fill(0);
-    let _ = match e {
-        MapforgeError::Corrupt(why) => write!(Buf(buf, 0), "corrupt: {why}"),
-        MapforgeError::InvalidTagId(id) => write!(Buf(buf, 0), "tag id {id}"),
-        other => write!(Buf(buf, 0), "{other:?}"),
-    };
+    let _ = Buf(buf, 0).write_fmt(text);
+}
+
+fn remember(e: &MapforgeError) {
+    match e {
+        MapforgeError::Corrupt(why) => remember_text(format_args!("corrupt: {why}")),
+        MapforgeError::InvalidTagId(id) => remember_text(format_args!("tag id {id}")),
+        other => remember_text(format_args!("{other:?}")),
+    }
 }
 
 /// Description of the last error as a zero terminated string, for logs.
@@ -238,6 +244,75 @@ pub struct MfrMap {
     styles: StyleTable,
 }
 
+/// A parsed stylesheet, see [`Stylesheet`].
+pub struct MfrStyle(Stylesheet);
+
+/// Parses a stylesheet (the text format of `src/stylesheet.rs`, `styles/hiking.style`) from
+/// `len` bytes of UTF-8. Returns null on failure with `MFR_ERR_STYLE` in `err` (optional) and
+/// the line and reason in `mfr_last_error`. The text is not needed after the call.
+///
+/// # Safety
+/// `text` must point to `len` readable bytes.
+#[no_mangle]
+pub unsafe extern "C" fn mfr_style_parse(text: *const u8, len: usize, err: *mut c_int) -> *mut MfrStyle {
+    let set_err = |code: c_int| {
+        if !err.is_null() {
+            *err = code;
+        }
+    };
+    if text.is_null() {
+        set_err(MFR_ERR_ARGUMENT);
+        return core::ptr::null_mut();
+    }
+    let parsed = core::str::from_utf8(core::slice::from_raw_parts(text, len))
+        .map_err(|_| remember_text(format_args!("style is not UTF-8")))
+        .and_then(|t| Stylesheet::parse(t).map_err(|e| remember_text(format_args!("{e}"))));
+    match parsed {
+        Ok(sheet) => {
+            set_err(MFR_OK);
+            Box::into_raw(Box::new(MfrStyle(sheet)))
+        }
+        Err(()) => {
+            set_err(MFR_ERR_STYLE);
+            core::ptr::null_mut()
+        }
+    }
+}
+
+/// The built-in hiking stylesheet, as a starting point to change. Null if out of memory.
+#[no_mangle]
+pub extern "C" fn mfr_style_builtin() -> *mut MfrStyle {
+    Box::into_raw(Box::new(MfrStyle(Stylesheet::builtin())))
+}
+
+/// # Safety
+/// `style` must come from `mfr_style_parse`/`mfr_style_builtin` (or be null) and not be used
+/// afterwards. Maps keep working: `mfr_set_style` copies what it needs.
+#[no_mangle]
+pub unsafe extern "C" fn mfr_style_free(style: *mut MfrStyle) {
+    if !style.is_null() {
+        drop(Box::from_raw(style));
+    }
+}
+
+/// Renders `map` with `style` from now on (NULL = the built-in one). The style may be freed
+/// afterwards.
+///
+/// # Safety
+/// `map` must be valid, `style` valid or null.
+#[no_mangle]
+pub unsafe extern "C" fn mfr_set_style(map: *mut MfrMap, style: *const MfrStyle) -> c_int {
+    if map.is_null() {
+        return MFR_ERR_ARGUMENT;
+    }
+    let map = &mut *map;
+    map.styles = match style.as_ref() {
+        Some(style) => StyleTable::from_header(&style.0, &map.map.header),
+        None => StyleTable::from_header(&Stylesheet::builtin(), &map.map.header),
+    };
+    MFR_OK
+}
+
 /// Opens a map. Returns null on failure; `err` (optional) receives an `MFR_ERR_*` code.
 ///
 /// # Safety
@@ -256,7 +331,7 @@ pub unsafe extern "C" fn mfr_open(io: *const MfrIo, err: *mut c_int) -> *mut Mfr
     match MapFile::from_source(CSource::new(*io)) {
         Ok(map) => {
             set_err(MFR_OK);
-            let styles = StyleTable::from_header(&map.header);
+            let styles = StyleTable::from_header(&Stylesheet::builtin(), &map.header);
             Box::into_raw(Box::new(MfrMap { map, styles }))
         }
         Err(e) => {

@@ -3,6 +3,7 @@ use std::{fmt::Write, path::Path};
 use mapsforge_rs::{
     render::{DrawTarget, Point},
     style::{paint, StyleTable},
+    stylesheet::Stylesheet,
     types::MapFile,
     view::View,
     Result,
@@ -56,7 +57,7 @@ impl DrawTarget for Svg {
 }
 
 fn render_svg(map: &mut MapFile<std::io::BufReader<std::fs::File>>, view: View, path: &str) -> Result<Svg> {
-    let styles = StyleTable::from_header(&map.header);
+    let styles = StyleTable::from_header(&Stylesheet::builtin(), &map.header);
     let mut svg = Svg { body: String::new(), polygons: 0, lines: 0, points: 0 };
     map.render(&view, &styles, &mut svg)?;
     let doc = format!(

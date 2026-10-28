@@ -7,7 +7,10 @@
 //! encoding of the C API (`MFR_PAT_*` in `include/mapsforge.h`).
 use alloc::{string::String, vec::Vec};
 
-use crate::types::MapHeader;
+use crate::{
+    stylesheet::{Rule, Stylesheet},
+    types::MapHeader,
+};
 
 /// The inks of the 7-color e-paper (ACeP), the order of the firmware's `color_t`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -238,7 +241,7 @@ use paint::{mix, overlay, solid, tint};
 use Ink::*;
 use Pattern::*;
 
-const BASE: Style = Style {
+pub(crate) const BASE_STYLE: Style = Style {
     kind: Kind::Line,
     color: 0,
     width: 1,
@@ -252,37 +255,37 @@ const BASE: Style = Style {
 };
 
 const fn area(color: u32, order: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Area, color, order, ..BASE })
+    Some(Style { kind: Kind::Area, color, order, ..BASE_STYLE })
 }
 const fn outlined(color: u32, outline: Ink, order: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Area, color, order, outline: Some(outline), ..BASE })
+    Some(Style { kind: Kind::Area, color, order, outline: Some(outline), ..BASE_STYLE })
 }
 const fn line(color: u32, width: u8, order: u8) -> Option<Style> {
-    Some(Style { color, width, order, ..BASE })
+    Some(Style { color, width, order, ..BASE_STYLE })
 }
 /// Railway: 3 px black and white checkerboard (reads as a grey band, unlike any road),
 /// with a white casing so it stays visible on forest.
 const fn rail() -> Option<Style> {
-    Some(Style { color: mix(Black, White, P50), width: 3, order: order::RAILWAY, casing: 1, ..BASE })
+    Some(Style { color: mix(Black, White, P50), width: 3, order: order::RAILWAY, casing: 1, ..BASE_STYLE })
 }
 /// Road: white casing, thinner below zoom 15.
 const fn road(color: u32, width: u8, order: u8) -> Option<Style> {
-    Some(Style { color, width, order, casing: 1, shrink: true, ..BASE })
+    Some(Style { color, width, order, casing: 1, shrink: true, ..BASE_STYLE })
 }
 /// Road that is only drawn from zoom 15 on (sidewalks and driveways crowd towns at zoom 14).
 const fn minor_road(color: u32, width: u8, order: u8) -> Option<Style> {
-    Some(Style { color, width, order, casing: 1, shrink: true, min_zoom: 15, ..BASE })
+    Some(Style { color, width, order, casing: 1, shrink: true, min_zoom: 15, ..BASE_STYLE })
 }
 const fn poi(symbol: Symbol, color: u32, radius: u8, min_zoom: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Poi, color, width: radius, order: order::POI, outline: Some(Black), symbol, min_zoom, ..BASE })
+    Some(Style { kind: Kind::Poi, color, width: radius, order: order::POI, outline: Some(Black), symbol, min_zoom, ..BASE_STYLE })
 }
 /// Place name: no symbol, the name of the POI is drawn.
 const fn place(rank: u8, min_zoom: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Poi, order: order::POI, min_zoom, label: rank, ..BASE })
+    Some(Style { kind: Kind::Poi, order: order::POI, min_zoom, label: rank, ..BASE_STYLE })
 }
 /// Black symbol with a white halo, so it stays apart from the black paths it often sits on.
 const fn poi_plain(symbol: Symbol, color: u32, radius: u8, min_zoom: u8) -> Option<Style> {
-    Some(Style { kind: Kind::Poi, color, width: radius, order: order::POI, outline: Some(White), symbol, min_zoom, ..BASE })
+    Some(Style { kind: Kind::Poi, color, width: radius, order: order::POI, outline: Some(White), symbol, min_zoom, ..BASE_STYLE })
 }
 
 // The area looks of the schema (docs/COLOR_SCHEMA.md).
@@ -309,9 +312,9 @@ const ROAD_W: u8 = 2;
 /// `(key, value pattern, style)`. A pattern ending in `*` matches by prefix, which also
 /// covers the `_bridge`/`_tunnel`/size suffixes of the Freizeitkarte maps. `None` hides the
 /// feature. Earlier rules win when a feature has several matching tags.
-type Rule = (&'static str, &'static str, Option<Style>);
+type StaticRule = (&'static str, &'static str, Option<Style>);
 
-const WAY_RULES: &[Rule] = &[
+const WAY_RULES: &[StaticRule] = &[
     // hidden: tunnels (would look like roads on the surface), overlays without own geometry
     ("tunnel", "yes", None),
     ("highway", "route*", None),
@@ -342,8 +345,8 @@ const WAY_RULES: &[Rule] = &[
     ("waterway", "river*", line(solid(Blue), 3, order::WATERWAY)),
     ("waterway", "canal*", line(solid(Blue), 3, order::WATERWAY)),
     // streams and ditches are not inside water areas: a white casing keeps them visible on forest
-    ("waterway", "stream*", Some(Style { color: solid(Blue), width: 2, order: order::WATERWAY, casing: 1, ..BASE })),
-    ("waterway", "*", Some(Style { color: solid(Blue), width: 1, order: order::WATERWAY, casing: 1, ..BASE })),
+    ("waterway", "stream*", Some(Style { color: solid(Blue), width: 2, order: order::WATERWAY, casing: 1, ..BASE_STYLE })),
+    ("waterway", "*", Some(Style { color: solid(Blue), width: 1, order: order::WATERWAY, casing: 1, ..BASE_STYLE })),
     // buildings
     ("building", "*", outlined(BUILDING, Black, order::BUILDING)),
     ("building:part", "*", None),
@@ -442,7 +445,7 @@ const WAY_RULES: &[Rule] = &[
     ("landuse", "landfill*", area(INDUSTRIAL, order::LANDUSE)),
 ];
 
-const POI_RULES: &[Rule] = &[
+const POI_RULES: &[StaticRule] = &[
     // place names
     ("place", "city", place(1, 0)),
     ("place", "town", place(2, 0)),
@@ -491,44 +494,50 @@ const POI_RULES: &[Rule] = &[
     ("tourism", "attraction", poi_plain(Symbol::Disc, solid(Black), 2, 15)),
 ];
 
-fn matches(pattern: &str, value: &str) -> bool {
-    match pattern.strip_suffix('*') {
-        Some(prefix) => value.starts_with(prefix),
-        None => pattern == value,
+impl Stylesheet {
+    /// The built-in hiking schema (`styles/hiking.style`).
+    pub fn builtin() -> Self {
+        let rules = |rules: &[StaticRule]| rules.iter().map(|&(k, v, s)| Rule::new(k, v, s)).collect();
+        Self { water: WATER, way_rules: rules(WAY_RULES), poi_rules: rules(POI_RULES) }
     }
 }
 
 /// Index of the first matching rule and its style.
 fn classify(rules: &[Rule], tag: &str) -> Option<(u16, Option<Style>)> {
     let (key, value) = tag.split_once('=')?;
-    rules
-        .iter()
-        .position(|&(k, v, _)| k == key && matches(v, value))
-        .map(|i| (i as u16, rules[i].2))
+    rules.iter().position(|r| r.matches(key, value)).map(|i| (i as u16, rules[i].style))
 }
 
 /// Per tag id styles for one map file.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct StyleTable {
+    water: u32,
     poi: Vec<Option<(u16, Option<Style>)>>,
     way: Vec<Option<(u16, Option<Style>)>>,
 }
 
+impl Default for StyleTable {
+    fn default() -> Self {
+        Self { water: WATER, poi: Vec::new(), way: Vec::new() }
+    }
+}
+
 impl StyleTable {
-    pub fn new(poi_tags: &[String], way_tags: &[String]) -> Self {
+    pub fn new(sheet: &Stylesheet, poi_tags: &[String], way_tags: &[String]) -> Self {
         Self {
-            poi: poi_tags.iter().map(|t| classify(POI_RULES, t)).collect(),
-            way: way_tags.iter().map(|t| classify(WAY_RULES, t)).collect(),
+            water: sheet.water,
+            poi: poi_tags.iter().map(|t| classify(&sheet.poi_rules, t)).collect(),
+            way: way_tags.iter().map(|t| classify(&sheet.way_rules, t)).collect(),
         }
     }
 
-    pub fn from_header(header: &MapHeader) -> Self {
-        Self::new(&header.poi_tags, &header.way_tags)
+    pub fn from_header(sheet: &Stylesheet, header: &MapHeader) -> Self {
+        Self::new(sheet, &header.poi_tags, &header.way_tags)
     }
 
     /// Fill of water tiles and the sea ([`paint`] code).
     pub fn water_color(&self) -> u32 {
-        WATER
+        self.water
     }
 
     pub fn poi_style(&self, tag_ids: &[usize]) -> Option<Style> {
@@ -604,7 +613,7 @@ mod tests {
 
     #[test]
     fn places_are_labels_by_importance() {
-        let t = StyleTable::new(&tags(&["place=city", "place=village", "place=hamlet", "amenity=bench"]), &[]);
+        let t = StyleTable::new(&Stylesheet::builtin(), &tags(&["place=city", "place=village", "place=hamlet", "amenity=bench"]), &[]);
         let rank = |id: usize| t.poi_style(&[id]).map(|s| (s.label, s.min_zoom));
         assert_eq!(rank(0), Some((1, 0)));
         assert_eq!(rank(1), Some((3, 0)));
@@ -613,7 +622,7 @@ mod tests {
     }
 
     fn table(t: &[&str]) -> StyleTable {
-        StyleTable::new(&[], &tags(t))
+        StyleTable::new(&Stylesheet::builtin(), &[], &tags(t))
     }
 
     #[test]
@@ -711,7 +720,7 @@ mod tests {
 
     #[test]
     fn rgb565() {
-        let s = Style { color: solid(White), ..BASE };
+        let s = Style { color: solid(White), ..BASE_STYLE };
         assert_eq!(s.rgb565(), 0xffff);
     }
 }

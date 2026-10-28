@@ -1,6 +1,6 @@
 /*
  * Host example: renders a view of a .map file into a PPM image.
- *   render_ppm <file.map> <lat> <lon> <zoom> <out.ppm> [width height] [eink]
+ *   render_ppm <file.map> <lat> <lon> <zoom> <out.ppm> [width height] [eink] [style file]
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,7 +73,7 @@ static int io_seek(void* ctx, uint64_t offset)
 int main(int argc, char** argv)
 {
     if (argc < 6) {
-        fprintf(stderr, "usage: %s file.map lat lon zoom out.ppm [width height] [eink]\n", argv[0]);
+        fprintf(stderr, "usage: %s file.map lat lon zoom out.ppm [width height] [eink] [style file]\n", argv[0]);
         return 2;
     }
     canvas_t canvas = { .width = argc > 7 ? atoi(argv[6]) : 480, .height = argc > 7 ? atoi(argv[7]) : 320,
@@ -94,6 +94,25 @@ int main(int argc, char** argv)
 
     canvas.rgb = malloc((size_t)canvas.width * canvas.height * 3);
     memset(canvas.rgb, 0xff, (size_t)canvas.width * canvas.height * 3);
+
+    if (argc > 9) {
+        FILE* sf = fopen(argv[9], "rb");
+        if (!sf) {
+            perror("style");
+            return 1;
+        }
+        char* text = malloc(1 << 20);
+        size_t len = fread(text, 1, 1 << 20, sf);
+        fclose(sf);
+        mfr_style_t* style = mfr_style_parse(text, len, &err);
+        free(text);
+        if (!style) {
+            fprintf(stderr, "%s: %s\n", argv[9], mfr_last_error());
+            return 1;
+        }
+        mfr_set_style(map, style);
+        mfr_style_free(style);
+    }
 
     mfr_draw_t draw = { &canvas, fill_polygon, polyline, point };
     int tiles = mfr_render(map, atof(argv[2]), atof(argv[3]), (uint8_t)atoi(argv[4]), canvas.width,

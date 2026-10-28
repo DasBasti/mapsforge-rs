@@ -23,6 +23,7 @@ extern "C" {
 #define MFR_ERR_TAG -4      /* tag id not in the header's tag table */
 #define MFR_ERR_TILE -5     /* tile outside of the map */
 #define MFR_ERR_CORRUPT -6  /* implausible sizes in the file, or out of memory */
+#define MFR_ERR_STYLE -7    /* invalid stylesheet, mfr_last_error() has the line and reason */
 
 /* colors are passed to the draw callbacks as 0xRRGGBB */
 #define MFR_PALETTE_RGB 0
@@ -76,6 +77,7 @@ extern "C" {
 #define MFR_FILL_CHECKER 0x01000000u
 
 typedef struct mfr_map mfr_map_t;
+typedef struct mfr_style mfr_style_t;
 
 typedef struct {
     int16_t x;
@@ -112,6 +114,28 @@ void mfr_close(mfr_map_t* map);
 
 /* out = { min_lat, min_lon, max_lat, max_lon } */
 int mfr_bounds(const mfr_map_t* map, double out[4]);
+
+/*
+ * Stylesheets: which tags are drawn how (colors, widths, draw order, symbols, labels, what is
+ * hidden). Without one the built-in hiking schema is used. The text format is documented in
+ * src/stylesheet.rs; styles/hiking.style is the built-in one to start from, e.g.
+ *
+ *   way highway=primary* : line color=red width=2 order=road casing=1 shrink
+ *   way natural=wood*    : area color=green/75 order=forest
+ *   poi place=city       : label rank=1
+ */
+
+/* Parses a stylesheet of len bytes (UTF-8, not necessarily zero terminated; not needed after
+ * the call). Returns NULL on failure, err (optional) receives MFR_ERR_STYLE or
+ * MFR_ERR_ARGUMENT. */
+mfr_style_t* mfr_style_parse(const char* text, size_t len, int* err);
+/* The built-in stylesheet. NULL if out of memory. */
+mfr_style_t* mfr_style_builtin(void);
+void mfr_style_free(mfr_style_t* style);
+
+/* Renders map with style from now on (NULL = built-in). The style can be freed afterwards, a
+ * new one replaces the old. Returns MFR_OK. */
+int mfr_set_style(mfr_map_t* map, const mfr_style_t* style);
 
 /* Draws the width x height pixel view at the zoom level (the Web Mercator zoom of 256 px tiles)
  * through the callbacks, back to front. lat/lon appears at pixel anchor_x/anchor_y (pass

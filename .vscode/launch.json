@@ -1,0 +1,176 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'mapsforge_rs'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=mapsforge-rs"
+                ],
+                "filter": {
+                    "name": "mapsforge_rs",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'read_first_tile'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=read_first_tile",
+                    "--package=mapsforge-rs"
+                ],
+                "filter": {
+                    "name": "read_first_tile",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'read_first_tile'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=read_first_tile",
+                    "--package=mapsforge-rs"
+                ],
+                "filter": {
+                    "name": "read_first_tile",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'read_header'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=read_header",
+                    "--package=mapsforge-rs"
+                ],
+                "filter": {
+                    "name": "read_header",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'read_header'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=read_header",
+                    "--package=mapsforge-rs"
+                ],
+                "filter": {
+                    "name": "read_header",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'read_tile_indices'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=read_tile_indices",
+                    "--package=mapsforge-rs"
+                ],
+                "filter": {
+                    "name": "read_tile_indices",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'read_tile_indices'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=read_tile_indices",
+                    "--package=mapsforge-rs"
+                ],
+                "filter": {
+                    "name": "read_tile_indices",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'header_test'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=header_test",
+                    "--package=mapsforge-rs"
+                ],
+                "filter": {
+                    "name": "header_test",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'tile_index_test'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=tile_index_test",
+                    "--package=mapsforge-rs"
+                ],
+                "filter": {
+                    "name": "tile_index_test",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

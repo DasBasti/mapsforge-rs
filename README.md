@@ -49,6 +49,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 
 
+### Stylesheets
+
+How the map is drawn (colors, line widths, draw order, symbols, labels, hidden features) is
+configured by a text stylesheet, see `src/stylesheet.rs` for the format and `styles/hiking.style`
+for the built-in one. From Rust: `Stylesheet::parse(text)` and `StyleTable::from_header(&sheet, &header)`.
+From the C API (`include/mapsforge.h`):
+
+```c
+mfr_style_t* style = mfr_style_parse(text, len, &err);  // NULL: see mfr_last_error()
+mfr_set_style(map, style);                              // NULL = built-in
+mfr_style_free(style);
+```
+
+`cargo run --example dump_style` prints the built-in stylesheet.
+
 ## Requirements
 
 - Rust 1.56 or higher

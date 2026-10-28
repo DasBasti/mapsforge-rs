@@ -3,7 +3,8 @@
 Target: Waveshare ACeP 5.65", 600x448, about 130 dpi (1 px = 0.2 mm), inks BLACK 0, WHITE 1,
 GREEN 2, BLUE 3, RED 4, YELLOW 5, ORANGE 6 (the firmware's `color_t`). White is the paper. There
 is no grey and no light tint, so everything else is mixed by dithering. Map data: the official
-mapsforge.org Germany map (OSM, mapsforge format v5). Implementation: `src/style.rs` (rules),
+mapsforge.org Germany map (OSM, mapsforge format v5). Implementation: `styles/hiking.style` (the rules as a loadable stylesheet, format in
+`src/stylesheet.rs`; `src/style.rs` has the same as built-in default),
 `src/render.rs` (casings, symbols), `c/mfr_raster.c` (patterns), encoding in
 `include/mapsforge.h`.
 

@@ -16,6 +16,7 @@ pub mod way;
 pub mod visit;
 pub mod view;
 pub mod style;
+pub mod stylesheet;
 pub mod render;
 #[cfg(feature = "ffi")]
 pub mod ffi;
