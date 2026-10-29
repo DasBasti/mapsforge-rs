@@ -5,7 +5,7 @@ use core::ffi::{c_int, c_void};
 use crate::{
     error::MapforgeError,
     io::{ByteRead, ByteSource},
-    render::{DrawTarget, Point},
+    render::{DrawTarget, Point, Scene},
     style::{paint, StyleTable},
     stylesheet::Stylesheet,
     types::MapFile,
@@ -395,6 +395,83 @@ pub unsafe extern "C" fn mfr_render(
         Ok(tiles) => tiles as c_int,
         Err(e) => error_code(&e),
     }
+}
+
+/// Creation date of the map file in milliseconds since 1970 (from its header), 0 if `map` is null.
+/// Two maps of the same region can be told apart by it.
+///
+/// # Safety
+/// `map` must be valid or null.
+#[no_mangle]
+pub unsafe extern "C" fn mfr_created(map: *const MfrMap) -> u64 {
+    if map.is_null() {
+        return 0;
+    }
+    (*map).map.header.creation_date
+}
+
+/// Shapes of one screen collected from several maps, see [`Scene`].
+pub struct MfrScene(Scene);
+
+/// An empty scene. Null if out of memory.
+#[no_mangle]
+pub extern "C" fn mfr_scene_new() -> *mut MfrScene {
+    Box::into_raw(Box::new(MfrScene(Scene::new())))
+}
+
+/// # Safety
+/// `scene` must come from `mfr_scene_new` (or be null) and not be used afterwards.
+#[no_mangle]
+pub unsafe extern "C" fn mfr_scene_free(scene: *mut MfrScene) {
+    if !scene.is_null() {
+        drop(Box::from_raw(scene));
+    }
+}
+
+/// Adds the shapes of `map` in the view (same parameters as `mfr_render`) to `scene`. The map
+/// can be closed afterwards. Returns the number of tiles read or a negative `MFR_ERR_*`; on an
+/// error the shapes collected before stay in the scene.
+///
+/// # Safety
+/// `scene` and `map` must be valid.
+#[no_mangle]
+pub unsafe extern "C" fn mfr_scene_collect(
+    scene: *mut MfrScene,
+    map: *mut MfrMap,
+    lat: f64,
+    lon: f64,
+    zoom: u8,
+    width: u16,
+    height: u16,
+    anchor_x: i16,
+    anchor_y: i16,
+) -> c_int {
+    if scene.is_null() || map.is_null() {
+        return MFR_ERR_ARGUMENT;
+    }
+    let map = &mut *map;
+    let view = View { center_lat: lat, center_lon: lon, zoom, width, height, anchor_x, anchor_y, tile_size: map.map.header.tile_size };
+    match map.map.collect(&view, &map.styles, &mut (*scene).0) {
+        Ok(tiles) => tiles as c_int,
+        Err(e) => error_code(&e),
+    }
+}
+
+/// Draws all collected shapes back to front through the callbacks, then empties the scene for
+/// the next screen. Returns `MFR_OK`.
+///
+/// # Safety
+/// `scene` must be valid, `draw` point to valid callbacks.
+#[no_mangle]
+pub unsafe extern "C" fn mfr_scene_draw(scene: *mut MfrScene, palette: u8, draw: *const MfrDraw) -> c_int {
+    if scene.is_null() || draw.is_null() {
+        return MFR_ERR_ARGUMENT;
+    }
+    let scene = &mut (*scene).0;
+    let mut target = CTarget { draw: *draw, palette, points: Vec::new(), lengths: Vec::new() };
+    scene.draw(&mut target);
+    scene.clear();
+    MFR_OK
 }
 
 #[cfg(not(feature = "std"))]

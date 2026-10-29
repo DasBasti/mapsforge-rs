@@ -78,6 +78,7 @@ extern "C" {
 
 typedef struct mfr_map mfr_map_t;
 typedef struct mfr_style mfr_style_t;
+typedef struct mfr_scene mfr_scene_t;
 
 typedef struct {
     int16_t x;
@@ -115,6 +116,9 @@ void mfr_close(mfr_map_t* map);
 /* out = { min_lat, min_lon, max_lat, max_lon } */
 int mfr_bounds(const mfr_map_t* map, double out[4]);
 
+/* Creation date of the map file in milliseconds since 1970 (from its header), 0 if map is NULL. */
+uint64_t mfr_created(const mfr_map_t* map);
+
 /*
  * Stylesheets: which tags are drawn how (colors, widths, draw order, symbols, labels, what is
  * hidden). Without one the built-in hiking schema is used. The text format is documented in
@@ -144,6 +148,28 @@ int mfr_set_style(mfr_map_t* map, const mfr_style_t* style);
 int mfr_render(mfr_map_t* map, double lat, double lon, uint8_t zoom, uint16_t width,
                uint16_t height, int16_t anchor_x, int16_t anchor_y, uint8_t palette,
                const mfr_draw_t* draw);
+
+/*
+ * Several maps on one screen: the shapes of all maps are collected into a scene and drawn
+ * together in one drawing order, so the land of one map lies below the forests and roads of the
+ * other where they overlap. A map can be closed right after it was collected, the scene keeps
+ * only screen points.
+ *
+ *   mfr_scene_t* scene = mfr_scene_new();       // keep it, its memory is reused
+ *   for each map: open, mfr_scene_collect(scene, map, ...), close
+ *   mfr_scene_draw(scene, MFR_PALETTE_EINK7, &draw);   // draws and empties the scene
+ */
+mfr_scene_t* mfr_scene_new(void);
+void mfr_scene_free(mfr_scene_t* scene);
+
+/* Adds the shapes of map in the view (as mfr_render) to the scene. Returns the number of tiles
+ * read or a negative MFR_ERR_*; the shapes collected before an error stay in the scene. */
+int mfr_scene_collect(mfr_scene_t* scene, mfr_map_t* map, double lat, double lon, uint8_t zoom,
+                      uint16_t width, uint16_t height, int16_t anchor_x, int16_t anchor_y);
+
+/* Draws the collected shapes back to front through the callbacks, then the place names, and
+ * empties the scene. Returns MFR_OK. */
+int mfr_scene_draw(mfr_scene_t* scene, uint8_t palette, const mfr_draw_t* draw);
 
 /* Short description of the last error for logs (zero terminated, valid until the next call). */
 const char* mfr_last_error(void);

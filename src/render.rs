@@ -56,8 +56,13 @@ struct Command {
     ring_count: u32,
 }
 
+/// The shapes of one screen in drawing order, collected from one or more maps with
+/// [`MapFile::collect`] and drawn with [`Scene::draw`]. Shapes of several maps are sorted
+/// together, so the land of one map lies below the forests and roads of the other where the maps
+/// overlap, as within one map. Only screen points are kept, a map can be closed after it was
+/// collected.
 #[derive(Default)]
-struct Scene {
+pub struct Scene {
     commands: Vec<Command>,
     points: Vec<Point>,
     /// lengths of the rings of polygon commands
@@ -231,22 +236,56 @@ impl TileVisitor for TileCollector<'_> {
     }
 }
 
+impl Scene {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Removes all shapes, the memory is kept for the next screen.
+    pub fn clear(&mut self) {
+        self.commands.clear();
+        self.points.clear();
+        self.rings.clear();
+        self.labels.clear();
+        self.text.clear();
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.commands.is_empty() && self.labels.is_empty()
+    }
+
+    /// Draws the shapes back to front into `target`, then the place names. The shapes stay in
+    /// the scene; [`Scene::clear`] it before the next screen.
+    pub fn draw<D: DrawTarget>(&mut self, target: &mut D) {
+        emit(self, target);
+    }
+}
+
 impl<S: ByteSource> MapFile<S> {
     /// Decodes all tiles overlapping `view`, and draws them back to front into `target`.
     /// Returns the number of tiles that had to be read.
     pub fn render<D: DrawTarget>(&mut self, view: &View, styles: &StyleTable, target: &mut D) -> Result<usize> {
+        let mut scene = Scene::new();
+        let tiles = self.collect(view, styles, &mut scene)?;
+        scene.draw(target);
+        Ok(tiles)
+    }
+
+    /// Decodes all tiles overlapping `view` and adds their shapes to `scene`, which can already
+    /// hold the shapes of other maps of the same view. Returns the number of tiles that had to
+    /// be read.
+    pub fn collect(&mut self, view: &View, styles: &StyleTable, scene: &mut Scene) -> Result<usize> {
         let Some(sub_file) = self.sub_file_for_zoom(view.zoom) else { return Ok(0) };
         let base_zoom = self.header.zoom_interval_configuration[sub_file].base_zoom_level;
         let screen = Screen { width: view.width as i32, height: view.height as i32 };
 
-        let mut scene = Scene::default();
         let mut tiles = 0;
         for (x, y) in view.visible_tiles(base_zoom).iter() {
             let Some(index) = self.tile_index_of(sub_file, x, y) else { continue };
             let projection = view.tile_projection(x, y, base_zoom);
 
             let mut collector = TileCollector {
-                scene: &mut scene,
+                scene,
                 styles,
                 projection,
                 screen: &screen,
@@ -255,12 +294,10 @@ impl<S: ByteSource> MapFile<S> {
             };
             let meta = self.visit_tile(sub_file, index, view.zoom, &mut collector)?;
             if meta.is_water {
-                add_water_tile(&mut scene, &projection, view, base_zoom, styles);
+                add_water_tile(scene, &projection, view, base_zoom, styles);
             }
             tiles += 1;
         }
-
-        emit(&mut scene, target);
         Ok(tiles)
     }
 }
