@@ -62,8 +62,10 @@ pub trait TileVisitor {
     fn way(&mut self, way: &WayInfo);
     /// Called before the way's geometry is decoded; returning `false` skips it entirely.
     /// `sub_tile_bitmap` has one bit per cell of the tile's 4x4 sub tile grid (bit 15 is
-    /// the top-left cell), so a visitor drawing only part of a tile can cull here.
-    fn accept_way(&mut self, _sub_tile_bitmap: u16) -> bool {
+    /// the top-left cell), so a visitor drawing only part of a tile can cull here. Do not rely
+    /// on it for areas: the cells of an area are not guaranteed to cover its interior, only
+    /// its outline. `tag_ids` are the tags of the way.
+    fn accept_way(&mut self, _sub_tile_bitmap: u16, _tag_ids: &[usize]) -> bool {
         true
     }
 }
@@ -238,13 +240,12 @@ fn visit_way<R: ByteSource + ?Sized, V: TileVisitor>(
     let data_start = reader.position()?;
 
     let sub_tile_bitmap = reader.read_u16_be()?;
-    if !visitor.accept_way(sub_tile_bitmap) {
-        return reader.seek_to(data_start + way_data_size as u64);
-    }
-
     let special_byte = reader.read_u8()?;
     let layer = ((special_byte & WAY_LAYER_BITMASK) >> 4) as i8 - tag::LAYER_OFFSET;
     read_tag_ids(reader, special_byte & WAY_NUMBER_OF_TAGS_BITMASK, way_tags, &mut scratch.tag_ids)?;
+    if !visitor.accept_way(sub_tile_bitmap, &scratch.tag_ids) {
+        return reader.seek_to(data_start + way_data_size as u64);
+    }
 
     let flags = reader.read_u8()?;
     let name = read_optional_str(reader, flags & WAY_FEATURE_NAME != 0, &mut scratch.name)?;

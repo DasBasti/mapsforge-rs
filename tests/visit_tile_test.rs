@@ -22,7 +22,7 @@ impl TileVisitor for Collect {
     fn way(&mut self, w: &WayInfo) {
         self.ways.push((w.layer, w.tag_ids.to_vec(), w.name.map(String::from), w.blocks.to_vec()));
     }
-    fn accept_way(&mut self, _bitmap: u16) -> bool {
+    fn accept_way(&mut self, _bitmap: u16, _tag_ids: &[usize]) -> bool {
         !self.skip_all_ways
     }
 }

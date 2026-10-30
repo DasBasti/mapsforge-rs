@@ -140,8 +140,15 @@ impl TileCollector<'_> {
 }
 
 impl TileVisitor for TileCollector<'_> {
-    fn accept_way(&mut self, sub_tile_bitmap: u16) -> bool {
-        sub_tile_bitmap == 0 || sub_tile_bitmap & self.visible_cells != 0
+    fn accept_way(&mut self, sub_tile_bitmap: u16, tag_ids: &[usize]) -> bool {
+        // The cells of an area may only mark its outline: an area that covers the screen
+        // without its border being there would never be filled. Areas are culled by their
+        // bounding box after projection instead.
+        match self.styles.way_style(tag_ids) {
+            None => false,
+            Some(style) if style.kind == Kind::Area => true,
+            Some(_) => sub_tile_bitmap == 0 || sub_tile_bitmap & self.visible_cells != 0,
+        }
     }
 
     fn poi(&mut self, poi: &PoiInfo) {
