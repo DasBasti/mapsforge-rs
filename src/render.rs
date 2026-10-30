@@ -5,7 +5,7 @@ use alloc::{string::String, vec::Vec};
 
 use crate::{
     io::ByteSource,
-    style::{order, paint, Ink, Kind, Style, StyleTable, Symbol},
+    style::{order, paint, Icon, Ink, Kind, Style, StyleTable, Symbol},
     types::{LatLong, MapFile},
     view::{TileProjection, View},
     visit::{PoiInfo, TileVisitor, WayInfo},
@@ -35,6 +35,11 @@ pub trait DrawTarget {
     /// A name (UTF-8) at a place, called after all shapes, most important names (rank 1) first,
     /// so the target can skip the ones that would overlap. `at` is the position of the place.
     fn label(&mut self, _at: Point, _text: &str, _rank: u8) {}
+    /// Draws the picture of an icon centered on `at`. Returns `false` if the target has no
+    /// icons, the symbol of the style is drawn then.
+    fn icon(&mut self, _at: Point, _icon: Icon) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -321,6 +326,7 @@ fn add_water_tile(scene: &mut Scene, projection: &TileProjection, view: &View, b
             outline: None,
             casing: 0,
             symbol: Symbol::Disc,
+            icon: Icon::None,
             min_zoom: 0,
             shrink: false,
             label: 0,
@@ -406,6 +412,9 @@ fn symbol_ring(symbol: Symbol, at: Point, r: i16) -> ([Point; 4], usize) {
 
 /// POI symbol, with a ring in the outline ink one pixel larger below it.
 fn draw_symbol<D: DrawTarget>(target: &mut D, at: Point, style: &Style) {
+    if style.icon != Icon::None && target.icon(at, style.icon) {
+        return;
+    }
     let r = style.width as i16;
     if style.symbol == Symbol::Disc {
         if let Some(outline) = style.outline {

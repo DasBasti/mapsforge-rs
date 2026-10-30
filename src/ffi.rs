@@ -6,7 +6,7 @@ use crate::{
     error::MapforgeError,
     io::{ByteRead, ByteSource},
     render::{DrawTarget, Point, Scene},
-    style::{paint, StyleTable},
+    style::{paint, Icon, StyleTable},
     stylesheet::Stylesheet,
     types::MapFile,
     view::View,
@@ -189,6 +189,8 @@ pub struct MfrDraw {
     pub point: extern "C" fn(ctx: *mut c_void, at: Point, color: u32, radius: u8),
     /// optional: names of places, UTF-8 (not zero terminated)
     pub label: Option<extern "C" fn(ctx: *mut c_void, at: Point, text: *const u8, len: u32, rank: u8)>,
+    /// optional: draws an icon (`MFR_ICON_*`) centered on a point; without it the symbols are drawn
+    pub icon: Option<extern "C" fn(ctx: *mut c_void, at: Point, icon: u8)>,
 }
 
 struct CTarget {
@@ -235,6 +237,16 @@ impl DrawTarget for CTarget {
     fn label(&mut self, at: Point, text: &str, rank: u8) {
         if let Some(label) = self.draw.label {
             label(self.draw.ctx, at, text.as_ptr(), text.len() as u32, rank);
+        }
+    }
+
+    fn icon(&mut self, at: Point, icon: Icon) -> bool {
+        match self.draw.icon {
+            Some(draw) => {
+                draw(self.draw.ctx, at, icon as u8);
+                true
+            }
+            None => false,
         }
     }
 }

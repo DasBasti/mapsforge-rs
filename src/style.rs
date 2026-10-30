@@ -155,6 +155,28 @@ pub enum Symbol {
     Diamond,
 }
 
+/// Bitmap a POI is marked with when the draw target has icons; the target knows the pictures
+/// (see `MFR_ICON_*` in `include/mapsforge.h`). The ids are part of the C API.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Icon {
+    /// the [`Symbol`] is drawn
+    None = 0,
+    DrinkingWater = 1,
+    Spring = 2,
+    Food = 3,
+    Supermarket = 4,
+    Pharmacy = 5,
+    Hospital = 6,
+    Train = 7,
+    Bus = 8,
+    Tram = 9,
+    Parking = 10,
+    Castle = 11,
+    Tower = 12,
+    Other = 13,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Style {
     pub kind: Kind,
@@ -171,6 +193,8 @@ pub struct Style {
     /// connected; lines below the roads get theirs just below themselves (`order - 1`)
     pub casing: u8,
     pub symbol: Symbol,
+    /// POIs: drawn instead of the symbol if the target can draw it
+    pub icon: Icon,
     /// hidden at lower zoom levels
     pub min_zoom: u8,
     /// roads: one pixel thinner below zoom 15, where a 4x smaller scale packs them densely
@@ -249,6 +273,7 @@ pub(crate) const BASE_STYLE: Style = Style {
     outline: None,
     casing: 0,
     symbol: Symbol::Disc,
+    icon: Icon::None,
     min_zoom: 0,
     shrink: false,
     label: 0,
@@ -278,6 +303,13 @@ const fn minor_road(color: u32, width: u8, order: u8) -> Option<Style> {
 }
 const fn poi(symbol: Symbol, color: u32, radius: u8, min_zoom: u8) -> Option<Style> {
     Some(Style { kind: Kind::Poi, color, width: radius, order: order::POI, outline: Some(Black), symbol, min_zoom, ..BASE_STYLE })
+}
+/// POI that is drawn as an icon; the symbol is the fallback for targets without icons.
+const fn marked(icon: Icon, style: Option<Style>) -> Option<Style> {
+    match style {
+        Some(s) => Some(Style { icon, ..s }),
+        None => None,
+    }
 }
 /// Place name: no symbol, the name of the POI is drawn.
 const fn place(rank: u8, min_zoom: u8) -> Option<Style> {
@@ -465,33 +497,33 @@ const POI_RULES: &[StaticRule] = &[
     ("tourism", "hostel", poi(Symbol::Square, solid(Red), 3, 15)),
     ("tourism", "hotel*", poi(Symbol::Square, solid(Red), 3, 15)),
     // water
-    ("amenity", "drinking_water", poi(Symbol::Disc, solid(Blue), 3, 0)),
-    ("natural", "spring", poi(Symbol::Disc, solid(Blue), 3, 0)),
+    ("amenity", "drinking_water", marked(Icon::DrinkingWater, poi(Symbol::Disc, solid(Blue), 3, 0))),
+    ("natural", "spring", marked(Icon::Spring, poi(Symbol::Disc, solid(Blue), 3, 0))),
     // food and supplies
-    ("amenity", "restaurant*", poi(Symbol::Disc, solid(Orange), 3, 15)),
-    ("amenity", "cafe", poi(Symbol::Disc, solid(Orange), 3, 15)),
-    ("amenity", "pub", poi(Symbol::Disc, solid(Orange), 3, 15)),
-    ("amenity", "bar", poi(Symbol::Disc, solid(Orange), 3, 15)),
-    ("amenity", "fast_food*", poi(Symbol::Disc, solid(Orange), 3, 15)),
-    ("shop", "supermarket", poi(Symbol::Square, solid(Orange), 3, 15)),
-    ("amenity", "pharmacy", poi(Symbol::Disc, solid(Red), 3, 15)),
-    ("amenity", "hospital", poi(Symbol::Disc, solid(Red), 4, 0)),
+    ("amenity", "restaurant*", marked(Icon::Food, poi(Symbol::Disc, solid(Orange), 3, 15))),
+    ("amenity", "cafe", marked(Icon::Food, poi(Symbol::Disc, solid(Orange), 3, 15))),
+    ("amenity", "pub", marked(Icon::Food, poi(Symbol::Disc, solid(Orange), 3, 15))),
+    ("amenity", "bar", marked(Icon::Food, poi(Symbol::Disc, solid(Orange), 3, 15))),
+    ("amenity", "fast_food*", marked(Icon::Food, poi(Symbol::Disc, solid(Orange), 3, 15))),
+    ("shop", "supermarket", marked(Icon::Supermarket, poi(Symbol::Square, solid(Orange), 3, 15))),
+    ("amenity", "pharmacy", marked(Icon::Pharmacy, poi(Symbol::Disc, solid(Red), 3, 15))),
+    ("amenity", "hospital", marked(Icon::Hospital, poi(Symbol::Disc, solid(Red), 4, 0))),
     // transport
-    ("railway", "station", poi(Symbol::Square, solid(Black), 3, 0)),
-    ("railway", "halt", poi(Symbol::Square, solid(Black), 3, 0)),
-    ("highway", "bus_stop", poi(Symbol::Square, solid(White), 2, 15)),
-    ("railway", "tram_stop", poi(Symbol::Square, solid(White), 2, 15)),
-    ("amenity", "parking", poi(Symbol::Square, solid(Blue), 3, 15)),
+    ("railway", "station", marked(Icon::Train, poi(Symbol::Square, solid(Black), 3, 0))),
+    ("railway", "halt", marked(Icon::Train, poi(Symbol::Square, solid(Black), 3, 0))),
+    ("highway", "bus_stop", marked(Icon::Bus, poi(Symbol::Square, solid(White), 2, 15))),
+    ("railway", "tram_stop", marked(Icon::Tram, poi(Symbol::Square, solid(White), 2, 15))),
+    ("amenity", "parking", marked(Icon::Parking, poi(Symbol::Square, solid(Blue), 3, 15))),
     // orientation: guideposts and boards, landmarks
     ("tourism", "information", poi(Symbol::Square, solid(Yellow), 2, 15)),
     ("tourism", "picnic_site", poi(Symbol::Disc, solid(Green), 2, 15)),
-    ("historic", "castle", poi_plain(Symbol::Disc, solid(Black), 3, 0)),
-    ("man_made", "tower", poi_plain(Symbol::Disc, solid(Black), 2, 0)),
-    ("man_made", "windmill", poi_plain(Symbol::Disc, solid(Black), 2, 0)),
-    ("man_made", "lighthouse", poi_plain(Symbol::Disc, solid(Black), 2, 0)),
-    ("amenity", "place_of_worship", poi_plain(Symbol::Disc, solid(Black), 2, 15)),
-    ("historic", "monument", poi_plain(Symbol::Disc, solid(Black), 2, 15)),
-    ("tourism", "attraction", poi_plain(Symbol::Disc, solid(Black), 2, 15)),
+    ("historic", "castle", marked(Icon::Castle, poi_plain(Symbol::Disc, solid(Black), 3, 0))),
+    ("man_made", "tower", marked(Icon::Tower, poi_plain(Symbol::Disc, solid(Black), 2, 0))),
+    ("man_made", "windmill", marked(Icon::Tower, poi_plain(Symbol::Disc, solid(Black), 2, 0))),
+    ("man_made", "lighthouse", marked(Icon::Tower, poi_plain(Symbol::Disc, solid(Black), 2, 0))),
+    ("amenity", "place_of_worship", marked(Icon::Other, poi_plain(Symbol::Disc, solid(Black), 2, 15))),
+    ("historic", "monument", marked(Icon::Other, poi_plain(Symbol::Disc, solid(Black), 2, 15))),
+    ("tourism", "attraction", marked(Icon::Other, poi_plain(Symbol::Disc, solid(Black), 2, 15))),
 ];
 
 impl Stylesheet {
