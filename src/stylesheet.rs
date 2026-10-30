@@ -23,6 +23,8 @@
 //! * `outline`: ink of a 1 px line around areas/symbols, or `none`
 //! * `casing`: pixels of white casing on each side of lines; `shrink`: one pixel thinner
 //!   below zoom 15; `min_zoom`: hidden below; `symbol`: `disc|square|triangle|diamond`
+//! * `icon`: `drinking_water spring food supermarket pharmacy hospital train bus tram parking
+//!   castle tower other`, a bitmap drawn instead of the symbol by targets that have icons
 //! * `rank`: importance of a label, 1 (city) to [`LABEL_RANKS`]
 //!
 //! Paint: `ink` (solid), `ink/pattern` (ink on the background), `ink/pattern/ink2` (mix) or
@@ -36,7 +38,7 @@ use alloc::{
 use core::fmt;
 
 use crate::style::{
-    order, paint, Ink, Kind, Pattern, Style, Symbol, BASE_STYLE, LABEL_RANKS,
+    order, paint, Icon, Ink, Kind, Pattern, Style, Symbol, BASE_STYLE, LABEL_RANKS,
 };
 
 /// Names of the draw orders, for `order=` in stylesheets.
@@ -90,6 +92,22 @@ const SYMBOL_NAMES: [(&str, Symbol); 4] = [
     ("square", Symbol::Square),
     ("triangle", Symbol::Triangle),
     ("diamond", Symbol::Diamond),
+];
+
+const ICON_NAMES: [(&str, Icon); 13] = [
+    ("drinking_water", Icon::DrinkingWater),
+    ("spring", Icon::Spring),
+    ("food", Icon::Food),
+    ("supermarket", Icon::Supermarket),
+    ("pharmacy", Icon::Pharmacy),
+    ("hospital", Icon::Hospital),
+    ("train", Icon::Train),
+    ("bus", Icon::Bus),
+    ("tram", Icon::Tram),
+    ("parking", Icon::Parking),
+    ("castle", Icon::Castle),
+    ("tower", Icon::Tower),
+    ("other", Icon::Other),
 ];
 
 /// One rule: tags `key=value` (`value` may end in `*`) get `style`, `None` hides them.
@@ -228,6 +246,10 @@ fn parse_style(kind: &str, props: &str, names: &[(String, u32)]) -> Result<Optio
                 let v = need()?;
                 style.symbol = lookup(&SYMBOL_NAMES, v).ok_or_else(|| format!("unknown symbol `{v}`"))?;
             }
+            "icon" => {
+                let v = need()?;
+                style.icon = lookup(&ICON_NAMES, v).ok_or_else(|| format!("unknown icon `{v}`"))?;
+            }
             "rank" if is_label => {
                 style.label = parse_number(name, need()?)?;
                 if style.label == 0 || style.label > LABEL_RANKS {
@@ -356,6 +378,10 @@ fn style_text(style: Option<&Style>) -> String {
         let name = SYMBOL_NAMES.iter().find(|&&(_, v)| v == s.symbol).map_or("disc", |&(n, _)| n);
         out.push_str(&format!(" symbol={name}"));
     }
+    if s.icon != base.icon {
+        let name = ICON_NAMES.iter().find(|&&(_, v)| v == s.icon).map_or("other", |&(n, _)| n);
+        out.push_str(&format!(" icon={name}"));
+    }
     if s.shrink {
         out.push_str(" shrink");
     }
@@ -392,6 +418,17 @@ mod tests {
         assert_eq!((city.label, city.min_zoom), (2, 3));
         let view = sheet.poi_rules[1].style.unwrap();
         assert_eq!((view.symbol, view.width, view.order), (Symbol::Diamond, 4, order::POI));
+    }
+
+    #[test]
+    fn icons_by_name() {
+        let sheet = Stylesheet::parse("poi amenity=cafe : symbol color=orange icon=food\n").unwrap();
+        let cafe = sheet.poi_rules[0].style.unwrap();
+        assert_eq!((cafe.icon, cafe.symbol), (Icon::Food, Symbol::Disc));
+        assert!(Stylesheet::parse("poi a=b : symbol icon=boat").unwrap_err().message.contains("boat"));
+        // the icon is kept when the stylesheet is written out and read again
+        let text = style_text(Some(&cafe));
+        assert!(text.contains("icon=food"), "{text}");
     }
 
     #[test]

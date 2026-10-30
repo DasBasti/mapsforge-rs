@@ -76,6 +76,21 @@ extern "C" {
  * background (= MFR_PAT_50 with B = background, kept for compatibility) */
 #define MFR_FILL_CHECKER 0x01000000u
 
+/* icons of POIs, the id the icon callback of mfr_draw_t gets. The pictures belong to the application. */
+#define MFR_ICON_DRINKING_WATER 1
+#define MFR_ICON_SPRING 2
+#define MFR_ICON_FOOD 3
+#define MFR_ICON_SUPERMARKET 4
+#define MFR_ICON_PHARMACY 5
+#define MFR_ICON_HOSPITAL 6
+#define MFR_ICON_TRAIN 7
+#define MFR_ICON_BUS 8
+#define MFR_ICON_TRAM 9
+#define MFR_ICON_PARKING 10
+#define MFR_ICON_CASTLE 11
+#define MFR_ICON_TOWER 12
+#define MFR_ICON_OTHER 13
+
 typedef struct mfr_map mfr_map_t;
 typedef struct mfr_style mfr_style_t;
 typedef struct mfr_scene mfr_scene_t;
@@ -106,6 +121,10 @@ typedef struct {
      * after all shapes, rank 1 (city) to 4 (hamlet) in this order, so names that do not fit can be
      * skipped. text is UTF-8 and not zero terminated. */
     void (*label)(void* ctx, mfr_point_t at, const char* text, uint32_t len, uint8_t rank);
+    /* optional (may be NULL): draws the picture of an MFR_ICON_* centered on a point, in painting
+     * order between the shapes. Without it POIs are drawn as colored symbols through fill_polygon
+     * and point. New field at the end: initialize with designated initializers. */
+    void (*icon)(void* ctx, mfr_point_t at, uint8_t icon);
 } mfr_draw_t;
 
 /* Opens a map. Returns NULL on failure, err (optional) receives MFR_OK or MFR_ERR_*.

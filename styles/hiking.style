@@ -131,27 +131,27 @@ poi amenity=shelter : symbol color=orange radius=3 outline=black symbol=square
 poi tourism=camp_site : symbol color=red radius=3 outline=black symbol=square min_zoom=15
 poi tourism=hostel : symbol color=red radius=3 outline=black symbol=square min_zoom=15
 poi tourism=hotel* : symbol color=red radius=3 outline=black symbol=square min_zoom=15
-poi amenity=drinking_water : symbol color=blue radius=3 outline=black
-poi natural=spring : symbol color=blue radius=3 outline=black
-poi amenity=restaurant* : symbol color=orange radius=3 outline=black min_zoom=15
-poi amenity=cafe : symbol color=orange radius=3 outline=black min_zoom=15
-poi amenity=pub : symbol color=orange radius=3 outline=black min_zoom=15
-poi amenity=bar : symbol color=orange radius=3 outline=black min_zoom=15
-poi amenity=fast_food* : symbol color=orange radius=3 outline=black min_zoom=15
-poi shop=supermarket : symbol color=orange radius=3 outline=black symbol=square min_zoom=15
-poi amenity=pharmacy : symbol color=red radius=3 outline=black min_zoom=15
-poi amenity=hospital : symbol color=red radius=4 outline=black
-poi railway=station : symbol radius=3 outline=black symbol=square
-poi railway=halt : symbol radius=3 outline=black symbol=square
-poi highway=bus_stop : symbol color=white radius=2 outline=black symbol=square min_zoom=15
-poi railway=tram_stop : symbol color=white radius=2 outline=black symbol=square min_zoom=15
-poi amenity=parking : symbol color=blue radius=3 outline=black symbol=square min_zoom=15
+poi amenity=drinking_water : symbol color=blue radius=3 outline=black icon=drinking_water
+poi natural=spring : symbol color=blue radius=3 outline=black icon=spring
+poi amenity=restaurant* : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi amenity=cafe : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi amenity=pub : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi amenity=bar : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi amenity=fast_food* : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi shop=supermarket : symbol color=orange radius=3 outline=black symbol=square icon=supermarket min_zoom=15
+poi amenity=pharmacy : symbol color=red radius=3 outline=black icon=pharmacy min_zoom=15
+poi amenity=hospital : symbol color=red radius=4 outline=black icon=hospital
+poi railway=station : symbol radius=3 outline=black symbol=square icon=train
+poi railway=halt : symbol radius=3 outline=black symbol=square icon=train
+poi highway=bus_stop : symbol color=white radius=2 outline=black symbol=square icon=bus min_zoom=15
+poi railway=tram_stop : symbol color=white radius=2 outline=black symbol=square icon=tram min_zoom=15
+poi amenity=parking : symbol color=blue radius=3 outline=black symbol=square icon=parking min_zoom=15
 poi tourism=information : symbol color=yellow radius=2 outline=black symbol=square min_zoom=15
 poi tourism=picnic_site : symbol color=green radius=2 outline=black min_zoom=15
-poi historic=castle : symbol radius=3 outline=white
-poi man_made=tower : symbol radius=2 outline=white
-poi man_made=windmill : symbol radius=2 outline=white
-poi man_made=lighthouse : symbol radius=2 outline=white
-poi amenity=place_of_worship : symbol radius=2 outline=white min_zoom=15
-poi historic=monument : symbol radius=2 outline=white min_zoom=15
-poi tourism=attraction : symbol radius=2 outline=white min_zoom=15
+poi historic=castle : symbol radius=3 outline=white icon=castle
+poi man_made=tower : symbol radius=2 outline=white icon=tower
+poi man_made=windmill : symbol radius=2 outline=white icon=tower
+poi man_made=lighthouse : symbol radius=2 outline=white icon=tower
+poi amenity=place_of_worship : symbol radius=2 outline=white icon=other min_zoom=15
+poi historic=monument : symbol radius=2 outline=white icon=other min_zoom=15
+poi tourism=attraction : symbol radius=2 outline=white icon=other min_zoom=15
