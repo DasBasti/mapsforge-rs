@@ -64,6 +64,11 @@ mfr_style_free(style);
 
 `cargo run --example dump_style` prints the built-in stylesheet.
 
+`styles/bw.style` is a black-and-white variant for 1-bit screens: only black and white inks, tints
+by dithering (forest `black/25`, scrub `black/12`, water `black/hlines`, orchard `black/diag`),
+steps and rails as `black/50`. Check a file with `cargo run --example check_style <file>`.
+`styles/bike.style` is a variant for bike riding. Demo screens of both: [docs/STYLES.md](docs/STYLES.md).
+
 ## Requirements
 
 - Rust 1.56 or higher

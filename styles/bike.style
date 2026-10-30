@@ -1,0 +1,168 @@
+# Bike riding stylesheet, derived from hiking.style: cycleways in red and on top, tracks and
+# quiet streets prominent, busy roads orange/black, motorways, steps, footways and lifts hidden,
+# bike shops, repair stations, parking and rental added.
+water = blue
+
+way tunnel=yes : hide
+way highway=route* : hide
+way highway=construction* : hide
+way highway=raceway : hide
+way highway=bus_guideway : hide
+way highway=services : hide
+way piste:type=* : hide
+way piste:difficulty=* : hide
+way admin_level=2 : line color=red/50 width=4 order=border
+way boundary=* : hide
+way admin_level=* : hide
+way leisure=nature_reserve : hide
+way natural=sea : area color=blue
+way natural=nosea : area color=white order=land
+way freizeitkarte=meer : area color=blue
+way freizeitkarte=land : area color=white order=land
+way natural=coastline : hide
+way natural=water* : area color=blue order=water
+way landuse=reservoir* : area color=blue order=water
+way landuse=basin* : area color=blue order=water
+way leisure=swimming_pool : area color=blue order=water
+way natural=wetland* : area color=blue/hlines/clear order=overlay
+way waterway=dam : line width=3 order=waterway
+way waterway=river* : line color=blue width=3 order=waterway
+way waterway=canal* : line color=blue width=3 order=waterway
+way waterway=stream* : line color=blue width=2 order=waterway casing=1
+way waterway=* : line color=blue order=waterway casing=1
+way building=* : area color=black/50 order=building outline=black
+way building:part=* : hide
+way railway=rail* : line color=black/50/white width=3 order=railway casing=1
+way railway=narrow_gauge* : line color=black/50/white width=3 order=railway casing=1
+way railway=light_rail* : line color=black/50/white width=3 order=railway casing=1
+way railway=preserved* : line color=black/50/white width=3 order=railway casing=1
+way railway=funicular* : line color=black/50/white width=3 order=railway casing=1
+way railway=monorail* : line color=black/50/white width=3 order=railway casing=1
+way railway=miniature* : line order=railway
+way railway=tram* : line order=railway
+way railway=* : hide
+way aerialway=cable_car : hide
+way aerialway=gondola : hide
+way aerialway=chair_lift : hide
+way aerialway=mixed_lift : hide
+way aerialway=* : hide
+way route=ferry : line order=minor_line
+way power=line : line order=minor_line
+way power=* : hide
+way barrier=city_wall : line width=2 order=minor_line
+way barrier=* : hide
+way man_made=pier : line width=3 order=street
+way aeroway=runway : line color=black/50/white width=6 order=road
+way aeroway=taxiway : line color=black/50/white width=2 order=road
+way aeroway=apron : area color=orange/25 order=landuse
+way aeroway=* : hide
+way highway=steps* : hide
+way highway=path* : line width=2 order=path casing=1 min_zoom=15
+way highway=footway* : hide
+way highway=fussweg* : hide
+way highway=bergweg* : hide
+way highway=track* : line width=3 order=path casing=1 shrink
+way highway=feldweg* : line width=3 order=path casing=1 shrink
+way highway=bridleway* : line width=2 order=path casing=1 min_zoom=15
+way highway=reitweg* : hide
+way highway=cycleway* : line color=red width=4 order=steps casing=1 shrink
+way highway=radfussweg* : line color=red width=4 order=steps casing=1 shrink
+way highway=radweg* : line color=red width=4 order=steps casing=1 shrink
+way highway=pedestrian* : line width=2 order=street casing=1 min_zoom=16
+way highway=living_street* : line width=3 order=street casing=1 shrink
+way highway=residential* : line width=3 order=street casing=1 shrink
+way highway=unclassified* : line width=3 order=street casing=1 shrink
+way highway=service* : line width=2 order=street casing=1 shrink min_zoom=16
+way highway=motorway* : hide
+way highway=trunk* : line color=orange/50 width=2 order=road casing=1 shrink
+way highway=primary* : line color=orange width=3 order=road casing=1 shrink
+way highway=secondary* : line width=3 order=road casing=1 shrink
+way highway=tertiary* : line width=3 order=street casing=1 shrink
+way highway=* : line order=road casing=1 shrink
+way landuse=military* : area color=red/diag/clear order=overlay
+way natural=wood* : area color=green/50 order=forest
+way landuse=forest* : area color=green/50 order=forest
+way natural=scrub* : area color=green/50/yellow order=scrub
+way natural=heath* : area color=green/50/yellow order=scrub
+way natural=grassland* : area color=green/25 order=green
+way natural=fell* : area color=green/25 order=green
+way landuse=grass* : area color=green/25 order=green
+way landuse=greenfield* : area color=green/25 order=green
+way landuse=meadow* : area color=green/25 order=green
+way landuse=village_green : area color=green/25 order=green
+way landuse=recreation_ground : area color=green/25 order=green
+way landuse=cemetery* : area color=green/25 order=green
+way leisure=park : area color=green/25 order=green
+way leisure=garden : area color=green/25 order=green
+way leisure=golf_course : area color=green/25 order=green
+way leisure=common : area color=green/25 order=green
+way leisure=dog_park : area color=green/25 order=green
+way leisure=pitch : area color=green/25 order=green
+way landuse=farmland* : area color=yellow/50 order=landuse
+way landuse=farm : area color=yellow/50 order=landuse
+way landuse=orchard* : area color=green/hlines order=green
+way landuse=vineyard* : area color=green/hlines order=green
+way landuse=allotments* : area color=green/hlines order=green
+way natural=scree* : area color=black/6 order=bare
+way natural=shingle* : area color=black/6 order=bare
+way natural=bare_rock* : area color=black/6 order=bare
+way natural=beach* : area color=yellow/25 order=bare
+way natural=sand* : area color=yellow/25 order=bare
+way landuse=quarry* : area color=black/diag order=bare
+way landuse=residential* : area color=orange/12 order=landuse
+way landuse=farmyard* : area color=orange/12 order=landuse
+way landuse=commercial* : area color=orange/25 order=landuse
+way landuse=retail* : area color=orange/25 order=landuse
+way landuse=industrial* : area color=orange/25 order=landuse
+way landuse=railway* : area color=orange/25 order=landuse
+way landuse=construction* : area color=orange/25 order=landuse
+way landuse=brownfield* : area color=orange/25 order=landuse
+way landuse=landfill* : area color=orange/25 order=landuse
+
+poi place=city : label rank=1
+poi place=town : label rank=2
+poi place=village : label rank=3
+poi place=suburb : label rank=4 min_zoom=15
+poi place=hamlet : label rank=4 min_zoom=15
+poi natural=peak : symbol radius=3 outline=white symbol=triangle
+poi natural=volcano : symbol radius=3 outline=white symbol=triangle
+poi mountain_pass=yes : symbol radius=3 outline=white symbol=diamond
+poi natural=cave_entrance : symbol radius=2 outline=white
+poi tourism=viewpoint : symbol color=yellow radius=4 outline=black symbol=diamond
+poi tourism=alpine_hut : symbol color=red radius=4 outline=black symbol=square
+poi amenity=shelter : symbol color=orange radius=3 outline=black symbol=square
+poi tourism=camp_site : symbol color=red radius=3 outline=black symbol=square min_zoom=15
+poi tourism=hostel : symbol color=red radius=3 outline=black symbol=square min_zoom=15
+poi tourism=hotel* : symbol color=red radius=3 outline=black symbol=square min_zoom=15
+poi amenity=drinking_water : symbol color=blue radius=3 outline=black icon=drinking_water
+poi natural=spring : symbol color=blue radius=3 outline=black icon=spring
+poi amenity=restaurant* : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi amenity=cafe : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi amenity=pub : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi amenity=bar : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi amenity=fast_food* : symbol color=orange radius=3 outline=black icon=food min_zoom=15
+poi shop=supermarket : symbol color=orange radius=3 outline=black symbol=square icon=supermarket min_zoom=15
+poi amenity=pharmacy : symbol color=red radius=3 outline=black icon=pharmacy min_zoom=15
+poi amenity=hospital : symbol color=red radius=4 outline=black icon=hospital
+poi railway=station : symbol radius=3 outline=black symbol=square icon=train
+poi railway=halt : symbol radius=3 outline=black symbol=square icon=train
+poi highway=bus_stop : symbol color=white radius=2 outline=black symbol=square icon=bus min_zoom=15
+poi railway=tram_stop : symbol color=white radius=2 outline=black symbol=square icon=tram min_zoom=15
+poi amenity=parking : symbol color=blue radius=3 outline=black symbol=square icon=parking min_zoom=15
+poi tourism=information : symbol color=yellow radius=2 outline=black symbol=square min_zoom=15
+poi tourism=picnic_site : symbol color=green radius=2 outline=black min_zoom=15
+poi historic=castle : symbol radius=3 outline=white icon=castle
+poi man_made=tower : symbol radius=2 outline=white icon=tower
+poi man_made=windmill : symbol radius=2 outline=white icon=tower
+poi man_made=lighthouse : symbol radius=2 outline=white icon=tower
+poi amenity=place_of_worship : symbol radius=2 outline=white icon=other min_zoom=15
+poi historic=monument : symbol radius=2 outline=white icon=other min_zoom=15
+poi tourism=attraction : symbol radius=2 outline=white icon=other min_zoom=15
+
+
+poi shop=bicycle : symbol color=red radius=4 outline=black symbol=diamond min_zoom=14
+poi amenity=bicycle_parking : symbol color=blue radius=2 outline=black symbol=square min_zoom=16
+poi amenity=bicycle_repair_station : symbol color=red radius=3 outline=black symbol=diamond
+poi amenity=bicycle_rental : symbol color=blue radius=3 outline=black symbol=square min_zoom=15
+poi amenity=charging_station : symbol color=yellow radius=3 outline=black symbol=square min_zoom=15
+poi amenity=bench : symbol color=white radius=1 outline=black min_zoom=16
